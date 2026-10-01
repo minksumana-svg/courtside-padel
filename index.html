@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Courtside Padel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: club console. Sticky top bar + tab strip, one 1100px column; court cards drawn as mini padel courts. */
+:root{
+  --bg:#EDF1F5; --surface:#FFFFFF; --surface-2:#F4F7FA; --ink:#0F1B2D; --muted:#5A6A7E; --line:#D6DEE8;
+  --court:#1E5CB8; --court-soft:#E2EBF8; --court-ink:#FFFFFF; --court-fill:#2A66C2; --court-line:rgba(255,255,255,.55);
+  --ball:#C9AF1F; --ball-soft:#F6EFC4; --ball-ink:#2E2800;
+  --good:#1D7F55; --good-soft:#DDF1E7; --warn:#A5680F; --warn-soft:#F8EBD2; --bad:#B8362A; --bad-soft:#F8DEDA;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0A111C; --surface:#121C2B; --surface-2:#172336; --ink:#E4EBF4; --muted:#91A1B5; --line:#243349;
+  --court:#5B97F0; --court-soft:#16284A; --court-ink:#06101E; --court-fill:#1F4F92; --court-line:rgba(255,255,255,.4);
+  --ball:#E2CC52; --ball-soft:#332D0C; --ball-ink:#1E1A00;
+  --good:#45C28B; --good-soft:#12301F; --warn:#E5A84C; --warn-soft:#33250D; --bad:#F2705F; --bad-soft:#3A1713;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0A111C; --surface:#121C2B; --surface-2:#172336; --ink:#E4EBF4; --muted:#91A1B5; --line:#243349;
+  --court:#5B97F0; --court-soft:#16284A; --court-ink:#06101E; --court-fill:#1F4F92; --court-line:rgba(255,255,255,.4);
+  --ball:#E2CC52; --ball-soft:#332D0C; --ball-ink:#1E1A00;
+  --good:#45C28B; --good-soft:#12301F; --warn:#E5A84C; --warn-soft:#33250D; --bad:#F2705F; --bad-soft:#3A1713;
+  color-scheme:dark }
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:2.1rem} h2{font-size:1.55rem} h3{font-size:1.2rem}
+p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono);font-size:.85em}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;font-weight:600;color:var(--muted)}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand b{font-family:var(--f-display);font-size:1.45rem;letter-spacing:.02em}
+.brand svg{flex:none}
+.tabs{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px 9px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-current="true"]{color:var(--ink);border-bottom-color:var(--court)}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px;padding-block:20px 60px;display:flex;flex-direction:column;gap:20px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);padding:7px 13px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--court)}
+.btn.primary{background:var(--court);border-color:var(--court);color:var(--court-ink)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--court);padding-inline:6px}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.small{padding:4px 9px;font-size:.82rem}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--court);outline-offset:2px}
+input[type=text],input[type=number],input[type=date],input[type=time],input[type=email],select,textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:100%;min-width:0}
+textarea{min-height:80px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:600;min-width:0}
+label.f .hint{font-weight:400;color:var(--muted);font-size:.78rem}
+.check{display:inline-flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel.flat{background:transparent;border-style:dashed}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:20px;align-items:start}
+@media (max-width:820px){.two{grid-template-columns:1fr}}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chip.court{background:var(--court-soft);border-color:transparent;color:var(--court)}
+.chip.ball{background:var(--ball-soft);border-color:transparent;color:var(--ink)}
+.chip.good{background:var(--good-soft);border-color:transparent;color:var(--good)}
+.chip.warn{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+.chip.bad{background:var(--bad-soft);border-color:transparent;color:var(--bad)}
+
+.banner{border-radius:var(--r);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--ball-soft);color:var(--ink)}
+.banner.info{background:var(--court-soft)}
+.banner p{flex:1;min-width:200px}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+/* rating hero */
+.rating{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.big{font-family:var(--f-display);font-size:4.2rem;font-weight:700;line-height:.9;font-variant-numeric:tabular-nums}
+.big small{font-size:1.2rem;color:var(--muted);font-weight:600}
+.factors{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.factor{border-left:3px solid var(--line);padding:2px 0 2px 10px}
+.factor .v{font-family:var(--f-display);font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums}
+.factor.accent{border-left-color:var(--court)}
+.factor.ball{border-left-color:var(--ball)}
+
+/* game cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.gcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left}
+.gcard:hover{border-color:var(--court)}
+.gcard .when{font-family:var(--f-display);font-size:1.05rem;font-weight:600;color:var(--court)}
+
+/* court */
+.courts{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.court{border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.court-head{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:.8rem;font-weight:600}
+.court-no{font-family:var(--f-display);font-size:1.1rem}
+.court-body{position:relative;display:grid;grid-template-columns:1fr 6px 1fr;background:var(--court-fill);color:#fff;min-height:96px;
+  background-image:linear-gradient(var(--court-line),var(--court-line)),linear-gradient(var(--court-line),var(--court-line)),linear-gradient(var(--court-line),var(--court-line));
+  background-size:1.5px 100%,32% 1.5px,32% 1.5px;background-position:50% 0,14% 50%,86% 50%;background-repeat:no-repeat}
+.court-body .side{padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;font-weight:600;font-size:.9rem;min-width:0;position:relative}
+.court-body .side span.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.court-body .side.b{text-align:right}
+.court-body .avg{font-weight:400;font-size:.74rem;opacity:.85}
+.court-body .net{background:repeating-linear-gradient(0deg,rgba(255,255,255,.85) 0 3px,transparent 3px 6px)}
+.court-body .me{background:rgba(255,255,255,.18)}
+.court-body .side.won{background:var(--ball);color:var(--ball-ink)}
+.court-body .side.lost{opacity:.6}
+.court-body .side .res{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.move{display:flex;justify-content:space-between;gap:8px;padding:0 12px 8px;font-size:.78rem;color:var(--muted)}
+.medal{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-weight:700;font-size:.78rem;background:var(--surface-2);border:1px solid var(--line)}
+.medal.m1{background:var(--ball);border-color:var(--ball);color:var(--ball-ink)}
+tr.lead td{background:var(--ball-soft)}
+.court-foot{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px}
+.court-foot input{width:64px;text-align:center;font-family:var(--f-display);font-size:1.2rem;font-weight:600;padding:3px}
+.score{font-family:var(--f-display);font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums}
+.sitout{font-size:.85rem;color:var(--muted)}
+
+/* timers */
+.clock{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border-radius:var(--r);background:var(--surface-2);border:1px solid var(--line);min-width:160px}
+.clock .t{font-family:var(--f-display);font-size:2.2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.clock.live{background:var(--court);border-color:var(--court);color:var(--court-ink)}
+.clock.live .eyebrow{color:var(--court-ink);opacity:.8}
+.clock.over{background:var(--bad);border-color:var(--bad);color:#fff}
+.clock.over .eyebrow{color:#fff}
+
+.round{display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--line)}
+.round:first-child{border-top:0;padding-top:0}
+
+.subtabs{display:flex;gap:6px;flex-wrap:wrap}
+.subtabs .btn[aria-current="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.list{display:flex;flex-direction:column}
+.li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);min-width:0}
+.li:last-child{border-bottom:0}
+.li .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted)}
+.dot.M{background:var(--court)} .dot.F{background:var(--ball)} .dot.mx{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--muted)}
+
+.lvl{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.lvl button{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:8px 0;font-family:var(--f-display);font-weight:700;font-size:1.1rem;cursor:pointer}
+.lvl button[aria-pressed="true"]{background:var(--court);border-color:var(--court);color:var(--court-ink)}
+.checks{display:flex;flex-direction:column;gap:6px}
+.checkline{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.ok{color:var(--good);font-weight:700} .no{color:var(--bad);font-weight:700}
+
+.modal-bg{position:fixed;inset:0;background:rgba(5,12,24,.5);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.modal{background:var(--surface);border-radius:14px;max-width:640px;width:100%;padding:22px;display:flex;flex-direction:column;gap:16px;border:1px solid var(--line)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:60;font-weight:600;max-width:calc(100% - 32px)}
+.empty{padding:26px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.kpi .v{font-family:var(--f-display);font-size:1.9rem;font-weight:700;font-variant-numeric:tabular-nums}
+details summary{cursor:pointer;font-weight:600}
+.spark{display:block}
+@media (prefers-reduced-motion:no-preference){.gcard,.btn{transition:border-color .15s}}
+@media (max-width:520px){ .big{font-size:3.2rem} .rating{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+"use strict";
+const CFG = window.COURTSIDE_CONFIG || {};
+const ADMIN_EMAIL = "mink.sumana@gmail.com";
+const ADMIN_EMAILS = (CFG.adminEmails && CFG.adminEmails.length ? CFG.adminEmails : [ADMIN_EMAIL]).map(e=>String(e).toLowerCase());
+const COLS = ["locations","players","games","leagues","memberships","signups","settings","levels","organiser_requests"];
+const LEVELS = ["","New to padel","Beginner","Improving beginner","Lower intermediate","Intermediate","Upper intermediate","Advanced","Competitive","Elite amateur","Pro level"];
+const PRI = {high:10, medium:3, off:0};
+const SCALE = 4;             // a 4-level gap = ~91% expected win
+const DEFAULT_SETTINGS = {membershipLive:false, price:120, trialDays:30, discounts:[]};
+
+let sb = null, rafPending = false, liveChannel = null;
+const S = {
+  mode:"loading", dbAvailable:false, loaded:{},
+  me:{id:null,name:"",email:null,isOwner:false},
+  data:emptyData(),
+  emails:{},
+  ui:{tab:"home", loc:null, view:null, modal:null, draft:{}, scores:{}, adminTab:"members", confirm:null, toast:null}
+};
+function emptyData(){ const o={}; COLS.forEach(c=>o[c]={}); return o; }
+
+/* ---------- utils ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const rid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+const today = () => { const d=new Date(); return iso(d); };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const addDays = (isoStr,n) => { const d=new Date(isoStr+"T12:00:00"); d.setDate(d.getDate()+n); return iso(d); };
+const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDate = s => { if(!s) return "—"; const d=new Date(s.length<=10? s+"T12:00:00": s); return `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()!==new Date().getFullYear()? d.getFullYear():""}`.trim(); };
+const fmtDT = ms => { if(!ms) return "—"; const d=new Date(ms); return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
+const sign = (v,dp=2) => (v>=0?"+":"−") + Math.abs(v).toFixed(dp);
+const money = v => "£" + (Math.round(v*100)/100).toLocaleString("en-GB",{minimumFractionDigits:0,maximumFractionDigits:2});
+function shuffle(a, rnd=Math.random){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const clone = o => JSON.parse(JSON.stringify(o));
+// Accepts 19:00, 19.00, 1900, 900, 9:5, 9 → "HH:MM" (24-hour); null if not a real time.
+function normTime(v){ const t=String(v??"").trim().replace(/[.\sh]/g,":"); let h,m;
+  if(/^\d{1,2}:\d{1,2}$/.test(t)) [h,m]=t.split(":").map(Number);
+  else if(/^\d{3,4}$/.test(t)){ h=+t.slice(0,-2); m=+t.slice(-2); }
+  else if(/^\d{1,2}$/.test(t)){ h=+t; m=0; } else return null;
+  if(h>23||m>59) return null; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
+const minutesBetween = (a,b) => { const x=normTime(a), y=normTime(b); if(!x||!y) return 0; const [h1,m1]=x.split(":").map(Number),[h2,m2]=y.split(":").map(Number); return (h2*60+m2)-(h1*60+m1); };
+const toMs = (date,time) => new Date(`${date}T${time||"00:00"}:00`).getTime();
+const pk = (a,b) => a<b ? a+"|"+b : b+"|"+a;
+
+/* ---------- identity & roles ---------- */
+const meId = () => S.mode==="sample" ? "me" : S.me.id;
+// The database enforces admin rights from the same email list (app_admins); this only decides what to show.
+const isAdmin = () => S.mode==="sample" || ADMIN_EMAILS.includes((S.me.email||"").toLowerCase());
+const settings = () => ({...DEFAULT_SETTINGS, ...(S.data.settings.app||{})});
+const locs = () => Object.values(S.data.locations).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+const myPlayer = () => S.data.players[meId()];
+function curLoc(){
+  const all = locs(); if(!all.length) return null;
+  const mine = myPlayer()?.locations || [];
+  let id = S.ui.loc;
+  if(!id || !S.data.locations[id]) id = mine.find(l=>S.data.locations[l]) || all[0].id;
+  S.ui.loc = id; return S.data.locations[id];
+}
+const isOrganiser = (locId, pid=meId()) => (pid===meId() && isAdmin()) || (S.data.locations[locId]?.organiserIds||[]).includes(pid);
+const playersAt = locId => Object.values(S.data.players).filter(p=>(p.locations||[]).includes(locId));
+const pname = id => S.data.players[id]?.name || "Unknown player";
+
+function memberInfo(pid){
+  const m = S.data.memberships[pid];
+  if(!m || !m.status || m.status==="none") return {state:"none", label:"No membership", cls:""};
+  const valid = !m.until || m.until >= today();
+  if(!valid) return {...m, state:"lapsed", label:"Lapsed "+fmtDate(m.until), cls:"bad"};
+  const lab = {active:"Member", trial:"Trial", comp:"Complimentary"}[m.status] || m.status;
+  return {...m, state:m.status, label: lab + (m.until? " · to "+fmtDate(m.until):""), cls: m.status==="trial"?"warn":"good"};
+}
+const canPlay = pid => !settings().membershipLive || ["active","trial","comp"].includes(memberInfo(pid).state);
+
+/* ---------- rating engine ---------- */
+function allMatches(){
+  const out=[];
+  Object.values(S.data.games).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)).forEach(g=>{
+    (g.rounds||[]).forEach((r,ri)=>{ if(!r.done) return;
+      r.courts.forEach(c=>{ const sa=+c.sa, sb=+c.sb;
+        if(c.sa==null||c.sb==null||isNaN(sa)||isNaN(sb)||sa+sb<=0) return;
+        out.push({gameId:g.id, leagueId:g.leagueId||"", locId:g.locId, date:g.date, ts: toMs(g.date,normTime(g.start)||"00:00") + ri*((+g.matchMin||15)+(+g.changeMin||2))*60000, round:ri+1, court:c.court, a:c.a, b:c.b, sa, sb});
+      });
+    });
+  });
+  return out;
+}
+const kFor = n => 0.25 + 0.65*Math.exp(-n/8);
+function computeRatings(matches){
+  const R={};
+  const resetOf = id => { const o=S.data.levels[id]; return o && o.level!=null ? {at:+o.at||0, level:clamp(+o.level,1,10)} : null; };
+  // An organiser/admin level change is a fresh start: result and margin factors go back to 0,
+  // match count restarts, and only matches after the change adjust the level.
+  const applyReset = x => { const rs=x.reset; if(!rs||x.resetDone) return; x.resetDone=true;
+    x.before={n:x.n,r:x.r,L0:x.L0}; x.L0=rs.level; x.r=rs.level; x.res=0; x.mar=0; x.n=0; x.w=0; x.l=0; x.d=0; x.upsets=0; x.badLosses=0; x.expSum=0; x.oppSum=0; x.hist=[]; };
+  const get = id => { if(!R[id]){ const rs=resetOf(id); const L0 = clamp(+(rs ? (S.data.players[id]?.level ?? rs.level) : startLevel(id)),1,10);
+      R[id]={id,L0,r:L0,n:0,res:0,mar:0,w:0,l:0,d:0,upsets:0,badLosses:0,expSum:0,oppSum:0,hist:[],reset:rs}; } return R[id]; };
+  Object.keys(S.data.players).forEach(get);
+  for(const m of matches){
+    const A=m.a.map(get), B=m.b.map(get);
+    [...A,...B].forEach(x=>{ if(x.reset && !x.resetDone && (m.ts||0) >= x.reset.at) applyReset(x); });
+    const ra=avg(A.map(x=>x.r)), rb=avg(B.map(x=>x.r));
+    const E = 1/(1+Math.pow(10,(rb-ra)/SCALE));
+    const win = m.sa>m.sb?1:m.sa<m.sb?0:0.5, share = m.sa/(m.sa+m.sb);
+    const upd=(team,Et,wt,sh,opp,mine,theirs,partners)=>team.forEach(x=>{
+      const K=kFor(x.n), dr=K*0.5*(wt-Et), dm=K*0.5*(sh-Et), before=x.r;
+      x.r=clamp(x.r+dr+dm,1,10);
+      const applied=x.r-before, tot=dr+dm, f=tot? applied/tot : 0;
+      x.res+=dr*f; x.mar+=dm*f; x.n++; x.expSum+=Et; x.oppSum+=opp;
+      if(wt===1){x.w++; if(Et<0.4) x.upsets++;} else if(wt===0){x.l++; if(Et>0.6) x.badLosses++;} else x.d++;
+      x.hist.push({date:m.date,gameId:m.gameId,round:m.round,delta:applied,exp:Et,win:wt,score:`${mine}–${theirs}`,opp,r:x.r,partners:partners.filter(p=>p!==x.id),opps:[]});
+    });
+    upd(A,E,win,share,rb,m.sa,m.sb,m.a); upd(B,1-E,1-win,1-share,ra,m.sb,m.sa,m.b);
+    A.forEach(x=>x.hist[x.hist.length-1].opps=m.b); B.forEach(x=>x.hist[x.hist.length-1].opps=m.a);
+  }
+  Object.values(R).forEach(x=>{ applyReset(x); x.conf = x.n/(x.n+8); x.k=kFor(x.n); });
+  return R;
+}
+function percentileIndex(ids,R){
+  const arr=ids.filter(id=>R[id]); const N=arr.length; const out={};
+  arr.forEach(id=>{ if(N===1){out[id]=10;return;}
+    const lower=arr.filter(o=>R[o].r < R[id].r - 1e-9).length, eq=arr.filter(o=>Math.abs(R[o].r-R[id].r)<=1e-9).length;
+    const rank=lower+(eq-1)/2; out[id]=1+9*rank/(N-1); });
+  return out;
+}
+
+/* ---------- round planner ---------- */
+const courtList = g => (g.courts||[]).map(Number).sort((a,b)=>a-b);
+function weights(g){ return {team:PRI[g.pTeam||"high"], level:PRI[g.pLevel||"high"], variety:PRI[g.pVariety||"medium"]}; }
+function histOf(rounds){
+  const partner={},opp={},sit={}; let lastSit=new Set();
+  rounds.forEach((r,i)=>{
+    r.courts.forEach(c=>{
+      [c.a,c.b].forEach(t=>{ if(t.length===2){const k=pk(t[0],t[1]); partner[k]=(partner[k]||0)+1;} });
+      c.a.forEach(x=>c.b.forEach(y=>{const k=pk(x,y); opp[k]=(opp[k]||0)+1;}));
+    });
+    (r.sitOut||[]).forEach(id=>sit[id]=(sit[id]||0)+1);
+    if(i===rounds.length-1) lastSit=new Set(r.sitOut||[]);
+  });
+  return {partner,opp,sit,lastSit};
+}
+const rt = (R,id) => R[id]?.r ?? 5;
+// Sex is man/woman. Preference says whether a player is happy to be in a man+woman pair.
+// Older profiles stored "X" (mixed) with the sex in `cat`.
+// Starting level: entered by the player once at sign-up; after that only organisers and the admin change it (kept in `levels`).
+function startLevel(id){ const o=S.data.levels[id]; return o && o.level!=null ? +o.level : +(S.data.players[id]?.level ?? 5); }
+function canSetLevel(id){ if(isAdmin()) return true; const p=S.data.players[id]; return !!p && (p.locations||[]).some(l=>isOrganiser(l)); }
+function sexOf(id){ const p=S.data.players[id]; if(!p) return ""; return p.gender==="X" ? (p.cat||"") : (p.gender||""); }
+function prefMixed(id){ const p=S.data.players[id]; return !!p && (p.gender==="X" || p.pref==="mixed"); }
+function genderPen(ids,g){
+  if(ids.length<2) return 0; const [a,b]=ids, sa=sexOf(a), sb=sexOf(b); if(!sa||!sb) return 0;
+  if(g.team==="mixed") return sa===sb?1:0;
+  return (sa!==sb && !(prefMixed(a)&&prefMixed(b))) ? 1 : 0;
+}
+function bestSplit(four,g,w,h,R,split){
+  const opts=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]]; let best=null;
+  // Americano: anyone who partnered last round must now be on opposite sides
+  const allowed = split ? opts.filter(o=>!o.some(t=>split.has(pk(four[t[0]],four[t[1]])))) : opts;
+  for(const o of (allowed.length?allowed:opts)){
+    const a=o[0].map(i=>four[i]), b=o[1].map(i=>four[i]);
+    const ra=a.map(id=>rt(R,id)), rb=b.map(id=>rt(R,id));
+    // Partners should be close in level; the two pairs' averages matter less.
+    let s = w.level*(2*(Math.abs(ra[0]-ra[1])+Math.abs(rb[0]-rb[1])) + Math.abs(avg(ra)-avg(rb)));
+    s += w.variety*12*((h.partner[pk(a[0],a[1])]||0)+(h.partner[pk(b[0],b[1])]||0));
+    s += w.variety*1.5*a.reduce((t,x)=>t+b.reduce((u,y)=>u+(h.opp[pk(x,y)]||0),0),0);
+    s += w.team*4*(genderPen(a,g)+genderPen(b,g));
+    if(!best||s<best.s) best={a,b,s};
+  }
+  return best;
+}
+function buildCourts(sorted,full,singles,courts,g,w,h,R,split){
+  const out=[]; let score=0, i=0;
+  for(let k=0;k<full;k++){ const four=sorted.slice(i,i+4); const sp=bestSplit(four,g,w,h,R,split); i+=4;
+    const lv=four.map(id=>rt(R,id));
+    out.push({court:courts[k],a:sp.a,b:sp.b,sa:null,sb:null}); score+=sp.s + w.level*0.6*(Math.max(...lv)-Math.min(...lv)); }
+  if(singles){ const t=sorted.slice(i,i+2);
+    out.push({court:courts[full],a:[t[0]],b:[t[1]],sa:null,sb:null,singles:true});
+    score += w.level*Math.abs(rt(R,t[0])-rt(R,t[1]))*2 + w.variety*(h.opp[pk(t[0],t[1])]||0); }
+  return {courts:out,score};
+}
+function capacity(n,courtsN,allowSingles){
+  const full=Math.min(courtsN,Math.floor(n/4)); const rem=n-full*4;
+  const singles = (allowSingles!==false && full<courtsN && rem>=2) ? 1 : 0;
+  return {full, singles, playing: full*4+singles*2, sit: n-(full*4+singles*2)};
+}
+function planRound(g, roster, R, prior, rnd=Math.random){
+  const rounds = prior || g.rounds || []; const courts=courtList(g);
+  const h=histOf(rounds), w=weights(g), cap=capacity(roster.length,courts.length,g.singles);
+  // sit-outs: those who have sat the least sit next; never twice in a row if avoidable
+  const order=shuffle(roster.slice(),rnd).sort((a,b)=>{
+    const d=(h.sit[b]||0)-(h.sit[a]||0); if(d) return d;
+    return (h.lastSit.has(b)?1:0)-(h.lastSit.has(a)?1:0);
+  });
+  const playing=order.slice(0,cap.playing), sitOut=order.slice(cap.playing);
+  let best;
+  if(g.format==="americano"){
+    const last=rounds[rounds.length-1];
+    let sorted;
+    if(last && last.done){
+      const pos={}, n=courts.length, lastCourts=courtList({courts:last.courts.map(c=>c.court)});
+      last.courts.forEach(c=>{ const k=lastCourts.indexOf(c.court); const sa=+c.sa, sb=+c.sb;
+        const up=Math.max(0,k-1), down=Math.min(n-1,k+1);
+        c.a.forEach(id=>pos[id]= sa>sb?up: sa<sb?down:k); c.b.forEach(id=>pos[id]= sb>sa?up: sb<sa?down:k); });
+      const mid=(n-1)/2;
+      sorted=playing.slice().sort((a,b)=>((pos[a]??mid)-(pos[b]??mid)) || (rt(R,b)-rt(R,a)));
+    } else {
+      sorted = w.level>0 ? playing.slice().sort((a,b)=>rt(R,b)-rt(R,a)) : shuffle(playing.slice(),rnd);
+    }
+    // Movement is fixed by results: winners go up a court, losers down. On each court the
+    // two arriving pairs split up, so last round's partners play against each other.
+    const split=new Set();
+    if(last) last.courts.forEach(c=>[c.a,c.b].forEach(t=>{ if(t.length===2) split.add(pk(t[0],t[1])); }));
+    best=buildCourts(sorted,cap.full,cap.singles,courts,g,w,h,R,split);
+  } else {
+    // Several starts (level order plus random orders), each improved by swapping players between courts.
+    const build=arr=>buildCourts(arr,cap.full,cap.singles,courts,g,w,h,R);
+    const starts=[playing.slice().sort((x,y)=>rt(R,y)-rt(R,x))]; for(let k=0;k<11;k++) starts.push(shuffle(playing.slice(),rnd));
+    for(const st of starts){ let cur=st, cb=build(cur);
+      for(let pass=0;pass<8;pass++){ let improved=false;
+        for(let i=0;i<cur.length;i++) for(let j=i+1;j<cur.length;j++){
+          if(Math.floor(i/4)===Math.floor(j/4)) continue;
+          const t=cur.slice(); [t[i],t[j]]=[t[j],t[i]]; const tb=build(t);
+          if(tb.score<cb.score-1e-9){ cur=t; cb=tb; improved=true; } }
+        if(!improved) break; }
+      if(!best||cb.score<best.score) best=cb; }
+  }
+  return {courts:best?best.courts:[], sitOut, done:false, startedAt:null, pausedLeft:null};
+}
+function gameRoster(g){
+  const set=new Set();
+  (g.picks||[]).forEach(pid=>{ const dec=S.data.signups[pid]?.declined?.[g.id]||0, inv=(g.invites||{})[pid]||0; if(!(dec && dec>=inv)) set.add(pid); });
+  Object.entries(S.data.signups).forEach(([pid,s])=>{ if((s.games||[]).includes(g.id)) set.add(pid); });
+  (g.removed||[]).forEach(id=>set.delete(id));
+  return [...set].filter(id=>S.data.players[id]);
+}
+const isInvited = (g,pid) => (g.picks||[]).includes(pid) && !(S.data.signups[pid]?.games||[]).includes(g.id);
+const myRequest = () => S.data.organiser_requests[meId()];
+const pendingRequests = () => Object.values(S.data.organiser_requests).filter(r=>r.status==="pending").sort((a,b)=>(a.at||0)-(b.at||0));
+const organisesAnywhere = (pid=meId()) => locs().some(l=>(l.organiserIds||[]).includes(pid));
+function fitsTeam(g,pid){ const sx=sexOf(pid); if(g.team==="male") return sx==="M"; if(g.team==="female") return sx==="F"; if(g.team==="mixed") return !!sx && prefMixed(pid); return true; }
+const eligibleRoster = g => gameRoster(g).filter(id=>canPlay(id)&&fitsTeam(g,id));
+// Match length and changeover are set by the app, not the organiser. It picks the number of rounds so
+// matches run close to 18 minutes (10–30 allowed), around the organiser's changeover (default 3 min), and prefers
+// a round count that gives every player the same number of sit-outs. Frozen once round 1 is drawn.
+const DEFAULT_CHANGEOVER=3, TARGET_MATCH=18, MIN_MATCH=10, MAX_MATCH=30;
+function autoPlan(mins,P,courtsN,singles,changeover=DEFAULT_CHANGEOVER){
+  if(mins<=0) return {mins:0,match:0,change:0,rounds:0,sit:0,fair:true,players:P};
+  const k = P ? capacity(P,courtsN,singles).sit : 0;
+  if(mins<MIN_MATCH) return {mins,match:mins,change:0,rounds:1,sit:k,fair:!k,players:P};
+  let best=null;
+  for(let n=1;n<=Math.floor(mins/MIN_MATCH);n++){
+    const C=n>1?changeover:0, m=Math.floor((mins-C*(n-1))/n);
+    if(m<MIN_MATCH||m>MAX_MATCH) continue;
+    const fair = !k || (n*k)%P===0;
+    const score=Math.abs(m-TARGET_MATCH) + (fair?0:4) + 0.2*(mins-(n*m+C*(n-1)));
+    if(!best||score<best.score) best={mins,match:m,change:C,rounds:n,sit:k,fair,players:P,score};
+  }
+  return best || {mins,match:mins,change:0,rounds:1,sit:k,fair:!k,players:P};
+}
+function sessionPlan(g){
+  const mins=Math.max(0,minutesBetween(g.start,g.end));
+  if((g.rounds||[]).length && +g.matchMin>0){ const ch=+g.changeMin||0, m=+g.matchMin;
+    return {mins, match:m, change:ch, rounds:Math.max(1,Math.floor((mins+ch)/(m+ch))), fixed:true}; }
+  const ros=g.id?eligibleRoster(g):[];
+  return autoPlan(mins, ros.length, courtList(g).length, g.singles, changeoverOf(g));
+}
+const changeoverOf = g => { const v=parseInt(g.changeover); return isNaN(v) ? DEFAULT_CHANGEOVER : clamp(v,0,15); };
+function freezePlan(g){ const p=sessionPlan({...g,rounds:[]}); g.matchMin=p.match; g.changeMin=p.change; return p; }
+
+/* ---------- leagues ---------- */
+function leagueMembers(l){
+  const set=new Set(l.picks||[]);
+  Object.entries(S.data.signups).forEach(([pid,s])=>{ if((s.leagues||[]).includes(l.id)) set.add(pid); });
+  (l.removed||[]).forEach(id=>set.delete(id));
+  return [...set].filter(id=>S.data.players[id]);
+}
+function matchesBetween(pid,from,to,locId,M){ return M.filter(m=>(m.a.includes(pid)||m.b.includes(pid)) && (!locId||m.locId===locId) && (!from||m.date>=from) && (!to||m.date<=to)).length; }
+function leagueChecks(l,pid,ctx){
+  const p=S.data.players[pid]; const r=ctx.R[pid]; if(!p||!r) return [];
+  const checks=[{label:"Plays at "+(S.data.locations[l.locId]?.name||"this club"), need:"", have:"", ok:(p.locations||[]).includes(l.locId), always:true}];
+  if(+l.minStart) checks.push({label:"Starting level", need:(+l.minStart).toFixed(1), have:r.L0.toFixed(1), ok:r.L0>=+l.minStart});
+  if(+l.minWeighted) checks.push({label:"Weighted level", need:(+l.minWeighted).toFixed(1), have:r.r.toFixed(2), ok:r.r>=+l.minWeighted});
+  if(+l.minIndex){ const ci=ctx.club[pid]; checks.push({label:"Club index", need:(+l.minIndex).toFixed(1), have: ci!=null?ci.toFixed(1):"—", ok:ci!=null&&ci>=+l.minIndex}); }
+  if(+l.minGames){ const n=matchesBetween(pid,l.from,l.to,l.locId,ctx.M);
+    checks.push({label:`Matches played ${l.from?fmtDate(l.from):"any time"} – ${l.to?fmtDate(l.to):"now"}`, need:String(+l.minGames), have:String(n), ok:n>=+l.minGames}); }
+  return checks;
+}
+function leagueTable(l,ctx){
+  const members=leagueMembers(l); const idx=percentileIndex(members,ctx.R);
+  const rows=members.map(id=>({id,p:0,w:0,l:0,gf:0,ga:0,pts:0,idx:idx[id],r:ctx.R[id]?.r??0}));
+  const byId=Object.fromEntries(rows.map(r=>[r.id,r]));
+  ctx.M.filter(m=>m.leagueId===l.id).forEach(m=>{
+    const side=(ids,f,a)=>ids.forEach(id=>{ const x=byId[id]; if(!x) return; x.p++; x.gf+=f; x.ga+=a;
+      if(f>a){x.w++; x.pts+=(+l.winPts||0);} else if(f<a){x.l++; x.pts+=(+l.lossPts||0);} else x.pts+=(+l.drawPts||0); });
+    side(m.a,m.sa,m.sb); side(m.b,m.sb,m.sa);
+  });
+  rows.sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.r-a.r);
+  return rows;
+}
+
+/* ---------- store ---------- */
+function dbError(e){
+  const m=(e?.message||"")+""; if(e?.code==="42501"||/row-level security/i.test(m)) return "You don't have permission to change that.";
+  if(/JWT|session/i.test(m)) return "Your sign-in has expired. Sign in again.";
+  return "Couldn't save: "+(m||"try again.");
+}
+async function put(col,id,obj){
+  obj = clone(obj);
+  if(S.mode==="sample"){ S.data[col][id]=obj; schedule(); return true; }
+  if(!sb||S.mode!=="live"){ toast("Sign in to save changes."); return false; }
+  const prev=S.data[col][id];
+  S.data[col][id]={...obj,id}; schedule();
+  const {id:_drop,...data}=obj;
+  const {error}=await sb.from(col).upsert({id, data});
+  if(error){ if(prev) S.data[col][id]=prev; else delete S.data[col][id]; schedule(); toast(dbError(error)); return false; }
+  return true;
+}
+async function remove(col,id){
+  if(S.mode==="sample"){ delete S.data[col][id]; schedule(); return; }
+  const prev=S.data[col][id]; delete S.data[col][id]; schedule();
+  const {error}=await sb.from(col).delete().eq("id",id);
+  if(error){ if(prev) S.data[col][id]=prev; schedule(); toast(dbError(error)); }
+}
+async function loadTable(col){
+  const out={}; let from=0;
+  for(;;){ const {data,error}=await sb.from(col).select("id,data").order("id").range(from,from+999);
+    if(error) throw error; data.forEach(r=>{ out[r.id]={...(r.data||{}), id:r.id}; }); if(data.length<1000) break; from+=1000; }
+  S.data[col]=out; S.loaded[col]=true;
+}
+// Optional tables (added after launch) load if present, so an older database still works.
+const OPTIONAL_COLS = new Set(["organiser_requests"]);
+async function loadAll(){ await Promise.all(COLS.map(c=>loadTable(c).catch(e=>{ if(OPTIONAL_COLS.has(c)){ S.data[c]={}; S.loaded[c]=true; } else throw e; }))); if(isAdmin()) await loadEmails(); schedule(); }
+async function loadEmails(){ const {data}=await sb.from("player_emails").select("id,email"); S.emails={}; (data||[]).forEach(r=>S.emails[r.id]=r.email); }
+let optChannel = null;
+function subscribe(){
+  if(liveChannel) sb.removeChannel(liveChannel);
+  if(optChannel) sb.removeChannel(optChannel);
+  let first=true;
+  const onChange = col => p => {
+    if(p.eventType==="DELETE"){ if(p.old?.id) delete S.data[col][p.old.id]; }
+    else if(p.new?.id){ S.data[col][p.new.id]={...(p.new.data||{}), id:p.new.id}; }
+    schedule(); };
+  liveChannel = sb.channel("courtside-live");
+  COLS.filter(c=>!OPTIONAL_COLS.has(c)).forEach(col=>liveChannel.on("postgres_changes",{event:"*",schema:"public",table:col},onChange(col)));
+  liveChannel.subscribe(status=>{
+    if(status==="SUBSCRIBED"){ if(!first) loadAll().catch(()=>{}); first=false; }   // caught up after a reconnect
+    if(status==="CHANNEL_ERROR"||status==="TIMED_OUT") toast("Live updates paused. They'll resume when the connection returns.");
+  });
+  // newer tables get their own channel, so a database without them can't stop the main live updates
+  optChannel = sb.channel("courtside-live-extra");
+  [...OPTIONAL_COLS].forEach(col=>optChannel.on("postgres_changes",{event:"*",schema:"public",table:col},onChange(col)));
+  optChannel.subscribe(()=>{});
+}
+let hiddenAt=0;
+document.addEventListener("visibilitychange",()=>{ if(document.hidden){ hiddenAt=Date.now(); return; }
+  if(S.mode==="live" && Date.now()-hiddenAt>60000) loadAll().catch(()=>{}); });
+async function startLive(){
+  S.mode="loading-live"; S.loaded={}; schedule();
+  try{ await loadAll(); }catch(e){ S.mode="error"; S.error=e?.message||String(e); schedule(); return; }
+  S.mode="live"; schedule(); subscribe(); recordSignIn(); saveMyEmail();
+}
+async function saveMyEmail(){ if(!S.me.id||!S.me.email) return; await sb.from("player_emails").upsert({id:S.me.id, email:S.me.email}); }
+function applySession(session){
+  const u=session?.user; if(!u){ S.me={id:null,name:"",email:null,isOwner:false}; return; }
+  const md=u.user_metadata||{};
+  S.me={id:u.id, name: md.full_name||md.name||"", email:(u.email||"").toLowerCase(), isOwner:false, avatar: md.avatar_url||""};
+}
+let signedIn=false;
+async function recordSignIn(){
+  if(signedIn||S.mode!=="live") return; signedIn=true;
+  const p=myPlayer(); if(!p) return;
+  const now=Date.now(); if(p.lastSignIn && now-p.lastSignIn < 30*60*1000) return;
+  const n=clone(p); n.lastSignIn=now; n.signInCount=(n.signInCount||0)+1; n.signIns=[now,...(n.signIns||[])].slice(0,20);
+  await put("players",p.id,n);
+}
+
+/* ---------- sample data ---------- */
+function mulberry(a){ return ()=>{ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function loadSample(){
+  const rnd=mulberry(42);
+  S.mode="sample"; S.data=emptyData(); S.ui.loc="loc-sample"; S.ui.view=null;
+  const locId="loc-sample";
+  S.data.locations[locId]={id:locId,name:"Sample Club",address:"Example only",courts:[1,2,3,4,5,6],organiserIds:["p3"],createdAt:1};
+  const roster=[["me","You (sample)","F",6],["p1","Alex Moreno","M",7],["p2","Priya Shah","F",5],["p3","Tom Brennan","M",6],["p4","Jess Carter","F",4],
+    ["p5","Luis Ortega","M",8],["p6","Hannah Webb","F",6],["p7","Dan Okafor","M",5],["p8","Sofia Rossi","F",7],["p9","Ben Hughes","M",4],
+    ["p10","Chloe Martin","F",3],["p11","Raj Patel","M",6],["p12","Emma Lind","F",5],["p13","Jack Doyle","M",5],["p14","Nina Kovac","F",8],["p15","Olly Grant","M",3]];
+  const base=Date.now();
+  roster.forEach(([id,name,gender,level],i)=>{
+    const joined=addDays(today(),-Math.floor(40+rnd()*500));
+    S.data.players[id]={id,name,gender,pref: ["p9","p15","p4"].includes(id)?"same":"mixed",level,locations:[locId],joinedAt:joined,lastSignIn:base-Math.floor(rnd()*9e8),signInCount:3+Math.floor(rnd()*40),signIns:[]};
+    const s=["active","active","trial","none","comp"][Math.floor(rnd()*5)];
+    if(s!=="none") S.data.memberships[id]={status:s, until:addDays(today(), s==="trial"?12:200), paidOn:addDays(today(),-160), history: s==="active"?[{date:addDays(today(),-160),amount:120,code:""}]:[]};
+  });
+  S.data.settings.app={...DEFAULT_SETTINGS, discounts:[{code:"FOUNDER20",pct:20,expires:addDays(today(),60)}]};
+  S.data.leagues["lg1"]={id:"lg1",locId,name:"Autumn Ladder",minStart:3,minWeighted:0,minIndex:0,minGames:2,from:"2026-09-01",to:"2026-12-31",winPts:3,lossPts:1,drawPts:2,rules:"Every match played on a league night counts. 3 points for a win, 1 for turning up and losing. Top 4 on 31 December play the finals night.",picks:[],removed:[],createdAt:1};
+  S.data.leagues["lg2"]={id:"lg2",locId,name:"Advanced League",minStart:6,minWeighted:6.2,minIndex:6,minGames:3,from:"2026-09-01",to:"2026-12-31",winPts:3,lossPts:0,drawPts:1,rules:"For the top half of the club. Best of 16 points per match.",picks:[],removed:[],createdAt:2};
+  const all=roster.map(r=>r[0]);
+  const mk=(id,name,date,format,team,courts,players,leagueId)=>{
+    const g={id,locId,name,date,start:"19:00",end:"21:00",matchMin:16,changeMin:2,courts,team,format,pTeam:"high",pLevel:"high",pVariety:"medium",singles:true,leagueId:leagueId||"",picks:players,removed:[],rounds:[],organiserId:"p3",createdAt:1};
+    S.data.games[id]=g; return g; };
+  const sim=(g,nRounds)=>{ for(let i=0;i<nRounds;i++){ const R=computeRatings(allMatches());
+      const rd=planRound(g,eligibleRoster(g),R,g.rounds,rnd);
+      rd.courts.forEach(c=>{ const ra=avg(c.a.map(id=>rt(R,id))), rb=avg(c.b.map(id=>rt(R,id)));
+        const E=1/(1+Math.pow(10,(rb-ra)/SCALE)); let sa=Math.round(16*clamp(E+(rnd()-0.5)*0.5,0.12,0.88)); if(sa===8) sa=rnd()<0.5?9:7; c.sa=sa; c.sb=16-sa; });
+      rd.done=true; g.rounds.push(rd); } };
+  sim(mk("g1","Tuesday Social","2026-09-08","mixed","random",[1,2,3,4],all),6);
+  sim(mk("g2","Ladder Night","2026-09-22","americano","mixed",[1,2,3,4],all.slice(0,14),"lg1"),6);
+  const g3=mk("g3","Tuesday Social","2026-10-06","mixed","random",[1,2,3],[], "lg1");
+  g3.picks=["p1","p2","p4","p5","p6","p7","p9","p11","p12","p13","p15"];
+  S.data.signups["me"]={games:["g3"],leagues:["lg1"]};
+  S.data.signups["p8"]={games:["g3"],leagues:["lg1","lg2"]};
+  S.data.signups["p14"]={games:[],leagues:["lg2"]};
+  S.data.signups["p5"]={games:[],leagues:["lg1","lg2"]};
+  S.data.signups["p1"]={games:[],leagues:["lg1","lg2"]};
+  ["p2","p3","p6","p11","p12","p13"].forEach(p=>S.data.signups[p]={games:[],leagues:["lg1"]});
+  mk("g4","Ladies Americano","2026-10-09","americano","female",[4,5],["p2","p4","p6","p8","p10","p12","p14"]);
+  schedule();
+}
+
+/* ---------- render plumbing ---------- */
+function schedule(){ if(rafPending) return; rafPending=true; requestAnimationFrame(()=>{ rafPending=false; render(); }); }
+function render(){
+  const app=document.getElementById("app"); const ae=document.activeElement;
+  const fid=ae&&ae.id, s1=ae&&ae.selectionStart, s2=ae&&ae.selectionEnd; const y=window.scrollY;
+  app.innerHTML=view();
+  if(fid){ const el=document.getElementById(fid); if(el){ el.focus({preventScroll:true}); try{ if(s1!=null) el.setSelectionRange(s1,s2);}catch(e){} } }
+  window.scrollTo(0,y); tick();
+}
+function toast(msg){ S.ui.toast=msg; schedule(); clearTimeout(toast.t); toast.t=setTimeout(()=>{S.ui.toast=null;schedule();},3200); }
+const D = () => S.ui.draft;
+function getPath(path){ return path.split(".").reduce((o,k)=>o?.[k], D()); }
+function setPath(path,val){ const ks=path.split("."); let o=D(); ks.slice(0,-1).forEach(k=>{ if(o[k]==null||typeof o[k]!=="object") o[k]={}; o=o[k]; }); o[ks[ks.length-1]]=val; }
+
+/* ---------- views ---------- */
+function ctx(){ const M=allMatches(); const R=computeRatings(M); const loc=curLoc();
+  const club = loc ? percentileIndex(playersAt(loc.id).map(p=>p.id),R) : {}; return {M,R,loc,club}; }
+
+function view(){
+  if(S.mode==="loading"||S.mode==="loading-live") return topbar(null)+`<main class="wrap"><div class="empty">Loading your club…</div></main>`;
+  if(S.mode==="signedout"||S.mode==="setup"||S.mode==="error") return topbar(null)+`<main class="wrap">${gate()}</main>${S.ui.toast?`<div class="toast" role="status">${esc(S.ui.toast)}</div>`:""}`;
+  const c=ctx();
+  return topbar(c)+nav()+`<main class="wrap">${banner()}${body(c)}</main>${modal(c)}${S.ui.toast?`<div class="toast" role="status">${esc(S.ui.toast)}</div>`:""}`;
+}
+const logo = `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1.5" y="4.5" width="27" height="21" rx="3" fill="var(--court)"/><path d="M15 4.5v21M5.5 15h7M17.5 15h7M5.5 9v12M24.5 9v12" stroke="var(--court-ink)" stroke-width="1.3" fill="none" opacity=".8"/><circle cx="21" cy="10" r="3" fill="var(--ball)"/></svg>`;
+function gate(){
+  const g = `<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
+  if(S.mode==="setup") return `<section class="panel" style="max-width:560px"><p class="eyebrow">Setup needed</p><h1>Connect the database</h1>
+    <p class="muted">This copy of Courtside Padel isn't connected to Supabase yet. Put your project URL and anon key in <span class="mono">config.js</span>, then reload.</p>
+    <div class="row"><button class="btn" data-act="useSample">Explore with sample data</button></div></section>`;
+  if(S.mode==="error") return `<section class="panel" style="max-width:560px"><h1>Couldn't load the club</h1><p class="muted">${esc(S.error||"")}</p>
+    <div class="row"><button class="btn primary" data-act="retryLive">Try again</button><button class="btn" data-act="signOut">Sign out</button></div></section>`;
+  return `<section class="panel" style="max-width:520px"><p class="eyebrow">Courtside Padel</p><h1>Sign in to your club</h1>
+    <p class="muted">Use your Google account. New players create a free profile after signing in.</p>
+    <div class="row"><button class="btn primary" data-act="signIn" style="background:var(--surface);color:var(--ink);border-color:var(--line)">${g} Sign in with Google</button>
+    <button class="btn ghost" data-act="useSample">Look around with sample data</button></div></section>`;
+}
+function topbar(c){
+  const loc=c?.loc; const mine=(myPlayer()?.locations)||[];
+  const choices=locs().filter(l=>isAdmin()||mine.includes(l.id));
+  const roles=[]; if(S.mode!=="loading"){ if(isAdmin()) roles.push("Admin"); if(loc&&isOrganiser(loc.id)) roles.push("Organiser"); if(myPlayer()) roles.push("Player"); }
+  return `<header class="top"><div class="top-in">
+    <div class="brand">${logo}<b>Courtside Padel</b></div>
+    ${choices.length>1?`<select id="locsel" data-act-change="setLoc" aria-label="Club location" style="width:auto">${choices.map(l=>`<option value="${esc(l.id)}" ${loc&&l.id===loc.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select>`: loc?`<span class="chip court">${esc(loc.name)}</span>`:""}
+    ${S.mode==="sample"?`<span class="chip ball">Sample data</span>`:""}
+    ${roles.map(r=>`<span class="chip">${r}</span>`).join("")}
+    ${S.mode==="live"&&S.me.id?`<span class="muted" style="font-size:.82rem">${esc(S.me.email||"")}</span><button class="btn small" data-act="signOut">Sign out</button>`:""}
+  </div></header>`;
+}
+function nav(){
+  const tabs=[["home","Home"],["games","Games"],["leagues","Leagues"],["rankings","Rankings"]];
+  if(isAdmin()){ const n=pendingRequests().length; tabs.push(["admin", n?`Admin <span class="chip warn" style="margin-left:4px">${n}</span>`:"Admin"]); }
+  return `<nav class="tabs top" style="position:static;border-bottom:1px solid var(--line)" aria-label="Sections">${tabs.map(([k,l])=>`<button class="tab" data-act="tab" data-v="${k}" aria-current="${S.ui.tab===k}">${l}</button>`).join("")}</nav>`;
+}
+function reqWhere(r){ return r.newLocation ? `New venue: ${r.newLocation.name} (${r.newLocation.courts} court${r.newLocation.courts==1?"":"s"})` : `Organiser at ${S.data.locations[r.locId]?.name||"a club"}`; }
+function banner(){
+  if(S.mode==="sample") return `<div class="banner"><p><b>You're looking at sample data.</b> The players, games and results here are made up so you can try every screen. Nothing you change is saved.</p>${S.dbAvailable?`<button class="btn primary" data-act="useLive">${S.me.id?"Back to my club":"Sign in"}</button>`:""}</div>`;
+  const rq=myRequest();
+  if(S.mode!=="sample" && rq && rq.status==="pending") return `<div class="banner info"><p><b>Your organiser application is with the admin.</b> ${esc(reqWhere(rq))}. You can play in the meantime${(myPlayer()?.locations||[]).length?"":" once it's approved"}.</p><button class="btn small" data-act="withdrawApply">Withdraw</button></div>`;
+  if(S.mode!=="sample" && rq && rq.status==="declined") return `<div class="banner"><p><b>Your organiser application wasn't approved.</b> ${esc(reqWhere(rq))}. Speak to the admin if you'd like to talk it through.</p><button class="btn small" data-act="withdrawApply">Dismiss</button></div>`;
+  if(S.mode==="live" && myPlayer() && !sexOf(meId())) return `<div class="banner"><p><b>Finish your profile.</b> Choose man or woman and your pairing preference so games can pair you and results can place you.</p><button class="btn primary" data-act="editProfile">Edit profile</button></div>`;
+  if(S.mode==="live" && settings().membershipLive && myPlayer() && !canPlay(meId())) return `<div class="banner"><p><b>Annual membership is now required to join games.</b> Speak to the club admin to pay ${money(settings().price)} for the year${settings().trialDays?` or start a ${settings().trialDays}-day trial`:""}.</p></div>`;
+  return "";
+}
+function body(c){
+  if(S.mode==="live" && !locs().length){
+    if(isAdmin()) return setupClub();
+    return `<div class="empty"><h2>This club isn't set up yet</h2><p>The club admin hasn't added a location. Check back soon.</p></div>`;
+  }
+  if(S.mode==="live" && S.me.id && !myPlayer() && S.ui.tab!=="admin") return profileForm(true);
+  switch(S.ui.tab){
+    case "games": return S.ui.view?.type==="gameEdit" ? gameEdit(c) : S.ui.view?.type==="game" && S.data.games[S.ui.view.id] ? gameDetail(c,S.data.games[S.ui.view.id]) : gamesList(c);
+    case "leagues": return S.ui.view?.type==="leagueEdit" ? leagueEdit(c) : S.ui.view?.type==="league" && S.data.leagues[S.ui.view.id] ? leagueDetail(c,S.data.leagues[S.ui.view.id]) : leaguesList(c);
+    case "rankings": return rankings(c);
+    case "admin": return isAdmin()? admin(c) : "";
+    default: return home(c);
+  }
+}
+
+/* setup + profile */
+function setupClub(){
+  const d=D(); d.loc ??= {name:"",courts:"4"};
+  return `<section class="panel" style="max-width:560px">
+    <p class="eyebrow">Admin setup</p><h1>Set up your club</h1>
+    <p class="muted">Add the padel facility first. You can add more locations and designate organisers later in Admin.</p>
+    <label class="f">Club or location name<input id="setup-name" type="text" data-bind="loc.name" value="${esc(d.loc.name)}" placeholder="e.g. Horsham Padel Centre"></label>
+    <label class="f">Number of courts<input id="setup-courts" type="number" min="1" max="30" data-bind="loc.courts" value="${esc(d.loc.courts)}"></label>
+    <div class="row"><button class="btn primary" data-act="createLoc">Create club</button><button class="btn" data-act="useSample">Explore with sample data first</button></div>
+  </section>`;
+}
+function applyFields(f,key){
+  return `<div class="f" style="font-size:.85rem;font-weight:600">Where would you organise?
+      <div class="list">${locs().map(l=>`<label class="li check" style="cursor:pointer"><input type="radio" name="${key}-reqloc" id="${key}-reqloc-${esc(l.id)}" data-bind="${key}.reqLoc" value="${esc(l.id)}" ${f.reqLoc===l.id?"checked":""}> <span class="grow">${esc(l.name)}</span></label>`).join("")}
+      <label class="li check" style="cursor:pointer"><input type="radio" name="${key}-reqloc" id="${key}-reqloc-new" data-bind="${key}.reqLoc" value="__new" ${f.reqLoc==="__new"?"checked":""}> <span class="grow">A new venue</span></label></div></div>
+    ${f.reqLoc==="__new"?`<div class="grid g2"><label class="f">Venue name<input id="${key}-newname" type="text" data-bind="${key}.newName" value="${esc(f.newName)}" placeholder="e.g. Horsham Padel Club"></label>
+      <label class="f">Number of courts<input id="${key}-newcourts" type="number" min="1" max="30" data-bind="${key}.newCourts" value="${esc(f.newCourts)}"></label></div>`:""}
+    <label class="f">Note for the admin <span class="hint">Optional: your experience or why you'd like to organise</span><textarea id="${key}-note" data-bind="${key}.note">${esc(f.note)}</textarea></label>`;
+}
+function applyCheck(f){
+  if(!f.reqLoc) return "Choose where you'd organise, or a new venue.";
+  if(f.reqLoc==="__new" && !String(f.newName||"").trim()) return "Name the new venue.";
+  if(f.reqLoc==="__new" && !(parseInt(f.newCourts)>0)) return "Enter how many courts the venue has.";
+  return "";
+}
+function applyRecord(f){
+  const r={status:"pending", at:Date.now(), note:String(f.note||"").trim().slice(0,500), name:String(f.name||myPlayer()?.name||S.me.name||"").slice(0,40)};
+  if(f.reqLoc==="__new") r.newLocation={name:String(f.newName).trim().slice(0,60), courts:Math.max(1,Math.min(30,parseInt(f.newCourts)||1))}; else r.locId=f.reqLoc;
+  return r;
+}
+function profileForm(first, tid){
+  tid = tid || meId(); const p=S.data.players[tid]; const d=D(); const other = tid!==meId();
+  if(d.prof && d.prof.id!==tid) delete d.prof;
+  d.prof ??= {id:tid, name:p?.name||(other?"":S.me.name)||"", sex: p? sexOf(p.id):"", pref: p&&prefMixed(p.id)?"mixed":"same", level:p? startLevel(tid):5, locs:p?.locations?.slice()||(locs().length===1?[locs()[0].id]:[])};
+  const f=d.prof; const lvlEditable = first || canSetLevel(tid);
+  if(first){ f.path ??= ""; f.reqLoc ??= (locs().length===1?locs()[0].id:""); f.newName ??= ""; f.newCourts ??= "4"; f.note ??= ""; }
+  const lo=S.data.levels[tid];
+  return `<section class="panel" style="max-width:640px">
+    ${first?`<p class="eyebrow">Welcome to Courtside Padel</p><h1>How would you like to start?</h1>
+      <div class="cards" role="radiogroup" aria-label="How would you like to start">
+        <button class="gcard" role="radio" id="ob-player" aria-checked="${f.path==="player"}" data-act="setOnboard" data-v="player" style="${f.path==="player"?"border-color:var(--court);box-shadow:0 0 0 2px var(--court)":""}"><span class="eyebrow">Player</span><h3>Join a club</h3><span class="muted" style="font-size:.88rem">Pick your padel location, then join games its organisers set up. Free.</span></button>
+        <button class="gcard" role="radio" id="ob-organiser" aria-checked="${f.path==="organiser"}" data-act="setOnboard" data-v="organiser" style="${f.path==="organiser"?"border-color:var(--court);box-shadow:0 0 0 2px var(--court)":""}"><span class="eyebrow">Organiser</span><h3>Run games</h3><span class="muted" style="font-size:.88rem">Apply to organise at a club or bring a new venue. The admin approves new organisers.</span></button>
+      </div>
+      ${f.path==="player"?`<div class="f" style="font-size:.85rem;font-weight:600">Your padel location
+        <div class="list">${locs().map(l=>`<label class="li check" style="cursor:pointer"><input type="radio" name="ob-loc" id="ob-loc-${esc(l.id)}" data-bind="prof.reqLoc" value="${esc(l.id)}" ${f.reqLoc===l.id?"checked":""}> <span class="grow">${esc(l.name)}</span><span class="muted" style="font-size:.8rem">${(l.courts||[]).length} courts · ${playersAt(l.id).length} players</span></label>`).join("")}</div></div>`:""}
+      ${f.path==="organiser"?applyFields(f,"prof"):""}
+      ${f.path?`<p class="eyebrow" style="margin-top:6px">Your player profile</p><p class="muted" style="font-size:.88rem">Organisers play too. Your starting level is your own estimate; results adjust it from there. Once saved, only an organiser can change it.</p>`:""}`
+      : other ? `<div class="row between"><div><p class="eyebrow">Admin · editing another player</p><h2>${esc(p?.name||"Player")}</h2></div><button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div>` : `<h2>Edit profile</h2>`}
+    ${first&&!f.path?"":`<label class="f">${other?"Name":"Name shown to other players"}<input id="pf-name" type="text" data-bind="prof.name" value="${esc(f.name)}"></label>
+    <div class="f" style="font-size:.85rem;font-weight:600">I am a<span class="hint">Used for all-male and all-female games and for Americano men's and women's winners</span>
+      <div class="row">${[["M","Man"],["F","Woman"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-sex" id="pf-sex-${v}" data-bind="prof.sex" value="${v}" ${f.sex===v?"checked":""}> ${l}</label>`).join("")}</div></div>
+    <div class="f" style="font-size:.85rem;font-weight:600">Pairing preference<span class="hint">Only players happy to play mixed are put in a man + woman pair</span>
+      <div class="row">${[["same",f.sex==="F"?"Women's only":f.sex==="M"?"Men's only":"Same-sex pairs only"],["mixed","Happy to play mixed"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-pref" id="pf-pref-${v}" data-bind="prof.pref" value="${v}" ${f.pref===v?"checked":""}> ${l}</label>`).join("")}</div></div>
+    ${lvlEditable ? `<div class="f" style="font-size:.85rem;font-weight:600">Starting level: <span class="num">${f.level}</span> · ${LEVELS[Math.round(f.level)]||""}${first?"":`<span class="hint">Organiser and admin only${lo?` · last changed ${fmtDT(lo.at)} by ${esc(pname(lo.by))}, was ${lo.prev}`:""}</span>`}
+      <div class="lvl" role="group" aria-label="Starting level">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button id="pf-l${n}" data-act="setLevel" data-v="${n}" aria-pressed="${+f.level===n}">${n}</button>`).join("")}</div></div>`
+    : `<div class="f" style="font-size:.85rem;font-weight:600">Starting level <span class="hint">Locked. Ask an organiser if it needs changing.</span>
+      <div class="row"><span class="chip court num" style="font-size:.9rem">🔒 ${startLevel(tid)} · ${LEVELS[Math.round(startLevel(tid))]||""}</span></div></div>`}
+    ${first?"":`<div class="f" style="font-size:.85rem;font-weight:600">${other?"Clubs":"Clubs you play at"}<span class="hint">At least one</span>
+      <div class="row">${locs().map(l=>`<label class="check"><input type="checkbox" id="pf-loc-${esc(l.id)}" data-bind-arr="prof.locs" value="${esc(l.id)}" ${f.locs.includes(l.id)?"checked":""}> ${esc(l.name)}</label>`).join("")}</div></div>`}
+    <div class="row"><button class="btn primary" data-act="saveProfile">${first?(f.path==="organiser"?"Send application and create profile":"Create profile"):"Save profile"}</button>${first?"":`<button class="btn" data-act="closeModal">Cancel</button>`}</div>`}
+  </section>`;
+}
+
+/* home */
+function spark(r){
+  const pts=[r.L0,...r.hist.map(h=>h.r)]; if(pts.length<2) return "";
+  const W=220,H=46,min=Math.min(...pts)-0.1,max=Math.max(...pts)+0.1;
+  const x=i=>i*(W-6)/(pts.length-1)+3, y=v=>H-3-(v-min)/(max-min)*(H-6);
+  const d=pts.map((v,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Level history"><line x1="0" x2="${W}" y1="${y(r.L0)}" y2="${y(r.L0)}" stroke="var(--line)" stroke-dasharray="3 3"/><path d="${d}" fill="none" stroke="var(--court)" stroke-width="2"/><circle cx="${x(pts.length-1)}" cy="${y(pts[pts.length-1])}" r="3.5" fill="var(--ball)"/></svg>`;
+}
+function ratingPanel(c,pid,withLeagues=true){
+  const r=c.R[pid]; if(!r) return "";
+  const myLeagues=Object.values(S.data.leagues).filter(l=>leagueMembers(l).includes(pid));
+  const li=myLeagues.map(l=>({l,idx:percentileIndex(leagueMembers(l),c.R)[pid]}));
+  return `<div class="rating">
+      <div><p class="eyebrow">Weighted level</p><div class="big">${r.r.toFixed(2)}<small> /10</small></div>${spark(r)}</div>
+      <div class="factors">
+        <div class="factor"><p class="eyebrow">Starting level</p><div class="v">${r.L0.toFixed(1)}</div><p class="muted" style="font-size:.78rem">${r.resetDone?`Reset ${fmtDate(iso(new Date(r.reset.at)))}`:"Self-assessed"}</p></div>
+        <div class="factor accent"><p class="eyebrow">Result factor</p><div class="v ${r.res>=0?"pos":"neg"}">${sign(r.res)}</div><p class="muted" style="font-size:.78rem">Wins/losses vs expected</p></div>
+        <div class="factor accent"><p class="eyebrow">Margin factor</p><div class="v ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</div><p class="muted" style="font-size:.78rem">How much you won or lost by</p></div>
+        <div class="factor"><p class="eyebrow">Evidence</p><div class="v">${r.n}</div><p class="muted" style="font-size:.78rem">Matches${r.resetDone?" since reset":""} · ${Math.round(r.conf*100)}% confidence</p></div>
+        ${c.club[pid]!=null?`<div class="factor ball"><p class="eyebrow">Club index</p><div class="v">${c.club[pid].toFixed(1)}</div><p class="muted" style="font-size:.78rem">${esc(c.loc?.name||"")} percentile</p></div>`:""}
+        ${withLeagues?li.map(x=>`<div class="factor ball"><p class="eyebrow">${esc(x.l.name)}</p><div class="v">${x.idx!=null?x.idx.toFixed(1):"—"}</div><p class="muted" style="font-size:.78rem">League index</p></div>`).join(""):""}
+      </div></div>`;
+}
+function home(c){
+  const pid=meId(); const p=myPlayer(); if(!p) return `<div class="empty">Sign in to create your player profile.</div>`;
+  const mi=memberInfo(pid);
+  const up=Object.values(S.data.games).filter(g=>(p.locations||[]).includes(g.locId)&&g.date>=today()).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  const lgs=Object.values(S.data.leagues).filter(l=>(p.locations||[]).includes(l.locId));
+  return `
+  <section class="panel">
+    <div class="row between"><div><p class="eyebrow">Player</p><h1>${esc(p.name)}</h1></div>
+      <div class="row"><span class="chip ${mi.cls}">${esc(mi.label)}</span><button class="btn small" data-act="openPlayer" data-v="${esc(pid)}">Full breakdown</button><button class="btn small" data-act="editProfile">Edit profile</button>${!isAdmin()&&!organisesAnywhere()&&!myRequest()&&S.mode!=="sample"?`<button class="btn small" data-act="openApply">Become an organiser</button>`:""}</div></div>
+    ${ratingPanel(c,pid)}
+  </section>
+  <section class="stack"><div class="row between"><h2>Upcoming games</h2><button class="btn ghost" data-act="tab" data-v="games">All games →</button></div>
+    ${up.length?`<div class="cards">${up.map(g=>gameCard(g,c)).join("")}</div>`:`<div class="empty">No games scheduled at your clubs yet.</div>`}</section>
+  <section class="stack"><h2>Leagues</h2>
+    ${lgs.length?`<div class="cards">${lgs.map(l=>{ const ch=leagueChecks(l,pid,c); const ok=ch.every(x=>x.ok); const inL=leagueMembers(l).includes(pid);
+      return `<button class="gcard" data-act="openLeague" data-v="${esc(l.id)}"><span class="eyebrow">${esc(S.data.locations[l.locId]?.name||"")}</span><h3>${esc(l.name)}</h3>
+        <span class="row">${inL?`<span class="chip good">You're in</span>`: ok?`<span class="chip court">Eligible to join</span>`:`<span class="chip warn">${ch.filter(x=>!x.ok).length} requirement${ch.filter(x=>!x.ok).length>1?"s":""} to go</span>`}<span class="chip">${leagueMembers(l).length} players</span></span></button>`; }).join("")}</div>`:`<div class="empty">No leagues yet.</div>`}</section>`;
+}
+function gameCard(g,c){
+  const ros=gameRoster(g), mine=ros.includes(meId()), plan=sessionPlan(g), cap=capacity(eligibleRoster(g).length,courtList(g).length,g.singles);
+  return `<button class="gcard" data-act="openGame" data-v="${esc(g.id)}">
+    <span class="when">${fmtDate(g.date)} · ${esc(g.start)}–${esc(g.end)}</span><h3>${esc(g.name)}</h3>
+    <span class="row"><span class="chip">${g.format==="americano"?"Americano ladder":"Mixed rotation"}</span><span class="chip">${teamLabel(g.team)}</span><span class="chip">${courtList(g).length} courts</span></span>
+    <span class="muted" style="font-size:.85rem">${ros.length} signed up · ${plan.rounds} rounds of ${plan.match} min${cap.sit?` · ${cap.sit} sit out per round`:""}</span>
+    ${g.date<today()?`<span class="row">${gameWinners(g).map(w=>`<span class="chip ball">🏆 ${w.cat?w.cat+" · ":""}${esc(pname(w.id))}</span>`).join("")}</span>`:""}
+    ${mine?(isInvited(g,meId())?`<span class="chip court" style="align-self:flex-start">Invited by the organiser</span>`:`<span class="chip good" style="align-self:flex-start">You're playing</span>`):""}</button>`;
+}
+const playsIn = id => { const sx=sexOf(id); if(!sx) return "Profile incomplete"; return (sx==="M"?"Man":"Woman")+(prefMixed(id)?" · plays mixed":` · ${sx==="M"?"men's":"women's"} only`); };
+const dotCls = id => (sexOf(id)||"") + (prefMixed(id)?" mx":"");
+const teamLabel = t => ({random:"Random pairs",mixed:"Mixed pairs (M+F, mixed players only)",male:"All male",female:"All female"}[t]||"Random pairs");
+
+/* games */
+function gamesList(c){
+  const loc=c.loc; const gs=Object.values(S.data.games).filter(g=>g.locId===loc.id);
+  const up=gs.filter(g=>g.date>=today()).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  const past=gs.filter(g=>g.date<today()).sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
+  return `<div class="row between"><h1>Games at ${esc(loc.name)}</h1>${isOrganiser(loc.id)?`<button class="btn primary" data-act="newGame">New game</button>`:""}</div>
+    <section class="stack"><h2>Upcoming</h2>${up.length?`<div class="cards">${up.map(g=>gameCard(g,c)).join("")}</div>`:`<div class="empty">No upcoming games.${isOrganiser(loc.id)?" Create one with New game.":""}</div>`}</section>
+    ${past.length?`<section class="stack"><h2>Played</h2><div class="cards">${past.map(g=>gameCard(g,c)).join("")}</div></section>`:""}`;
+}
+function gameEdit(c){
+  const d=D(), g=d.game; const loc=S.data.locations[g.locId]||c.loc; const plan=sessionPlan(g);
+  const lgs=Object.values(S.data.leagues).filter(l=>l.locId===loc.id);
+  const priSel=(k,label)=>`<label class="f">${label}<select id="ge-${k}" data-bind="game.${k}" data-rerender>${["high","medium","off"].map(v=>`<option value="${v}" ${g[k]===v?"selected":""}>${v==="off"?"Don't prioritise":v[0].toUpperCase()+v.slice(1)+" priority"}</option>`).join("")}</select></label>`;
+  const cap=capacity(gameRoster({...g,id:g.id||"__new"}).length,(g.courts||[]).length,g.singles);
+  return `<button class="btn ghost" data-act="back">← Back</button>
+  <section class="panel"><h1>${g.id?"Edit game":"New game"}</h1>
+    <div class="grid g2">
+      <label class="f">Game name<input id="ge-name" type="text" data-bind="game.name" value="${esc(g.name)}" placeholder="e.g. Tuesday Social"></label>
+      <label class="f">League (optional)<select id="ge-league" data-bind="game.leagueId"><option value="">Not a league game</option>${lgs.map(l=>`<option value="${esc(l.id)}" ${g.leagueId===l.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select></label>
+    </div>
+    <div class="grid g3">
+      <label class="f">Date<input id="ge-date" type="date" data-bind="game.date" data-rerender value="${esc(g.date)}"></label>
+      <label class="f">Courts booked from<span class="hint">24-hour, e.g. 19:00</span><input id="ge-start" type="text" inputmode="numeric" placeholder="00:00" maxlength="5" autocomplete="off" data-bind="game.start" data-time data-rerender value="${esc(g.start)}"></label>
+      <label class="f">Until<span class="hint">24-hour, e.g. 21:00</span><input id="ge-end" type="text" inputmode="numeric" placeholder="00:00" maxlength="5" autocomplete="off" data-bind="game.end" data-time data-rerender value="${esc(g.end)}"></label>
+      <label class="f">Changeover between rounds (min)<span class="hint">Default 3. Match length is worked out around it.</span><input id="ge-change" type="number" min="0" max="15" step="1" inputmode="numeric" data-bind="game.changeover" data-rerender value="${esc(g.changeover ?? DEFAULT_CHANGEOVER)}" ${(g.rounds||[]).length?"disabled":""}></label>
+    </div>
+    <div class="f" style="font-size:.85rem;font-weight:600">Court numbers booked <span class="hint">${(g.courts||[]).length} court${(g.courts||[]).length===1?"":"s"} · up to ${(g.courts||[]).length*4} players per round</span>
+      <div class="row">${(loc.courts||[]).map(n=>`<label class="check"><input type="checkbox" id="ge-c${n}" data-bind-arr="game.courts" data-num data-rerender value="${n}" ${(g.courts||[]).includes(n)?"checked":""}> Court ${n}</label>`).join("")}</div></div>
+    <div class="banner info"><p>${plan.mins>0?`<b>The app has set ${plan.rounds} round${plan.rounds===1?"":"s"} of ${plan.match} min</b>${plan.change?` with a ${plan.change}-min changeover`:""} in the ${plan.mins}-minute booking.${plan.fixed?" Fixed when round 1 was drawn; clear the rounds to recalculate.":plan.players&&plan.sit?(plan.fair?` Everyone sits out ${plan.rounds*plan.sit/plan.players} time${plan.rounds*plan.sit/plan.players===1?"":"s"}.`:" Sit-outs are spread as evenly as the numbers allow."):""}`:`<b>Enter the booked start and end times</b> and the app will set the match length and number of rounds.`}${(g.courts||[]).length?` With ${gameRoster({...g,id:g.id||"__new"}).length} players so far: ${cap.full} doubles court${cap.full===1?"":"s"}${cap.singles?" + 1 singles court":""}, ${cap.sit} sitting out each round.`:""}</p></div>
+    <div class="grid g2">
+      <label class="f">Team attribute<select id="ge-team" data-bind="game.team">${["random","mixed","male","female"].map(v=>`<option value="${v}" ${g.team===v?"selected":""}>${teamLabel(v)}</option>`).join("")}</select></label>
+      <label class="f">Round format<select id="ge-format" data-bind="game.format" data-rerender>
+        <option value="mixed" ${g.format==="mixed"?"selected":""}>Mixed rotation: planned in advance, everyone plays everyone</option>
+        <option value="americano" ${g.format==="americano"?"selected":""}>Americano ladder: drawn round by round, winners move up a court and split up</option></select></label>
+    </div>
+    <div><p class="eyebrow" style="margin-bottom:8px">Pairing priorities</p><div class="grid g3">${priSel("pTeam","Team attribute")}${priSel("pLevel","Similar-level partners")}${priSel("pVariety","New partners each round")}</div></div>
+    <label class="check"><input type="checkbox" id="ge-singles" data-bind-bool="game.singles" ${g.singles!==false?"checked":""}> Use a spare court for singles when 2 or 3 players are left over</label>
+    <div class="row"><button class="btn primary" data-act="saveGame">${g.id?"Save changes":"Create game"}</button><button class="btn" data-act="back">Cancel</button>
+      ${g.id?`<button class="btn danger" data-act="deleteGame" data-v="${esc(g.id)}">${S.ui.confirm==="del-"+g.id?"Tap again to delete":"Delete game"}</button>`:""}</div>
+  </section>`;
+}
+function courtCard(g,rd,ri,ci,cc,c,org){
+  const me=meId(); const key=`${g.id}:${ri}:${ci}`; const sc=S.ui.scores[key]||{};
+  const scored = rd.done && cc.sa!=null && cc.sb!=null;
+  const was = cc.prev ? `<span class="muted" style="font-size:.75rem">was ${cc.prev.sa}–${cc.prev.sb}</span>` : "";
+  const resA = !scored ? "" : +cc.sa>+cc.sb ? "won" : +cc.sa<+cc.sb ? "lost" : "draw";
+  const resB = resA==="won" ? "lost" : resA==="lost" ? "won" : resA;
+  const tag = r => r==="won" ? `<span class="res">✓ Winners</span>` : r==="draw" ? `<span class="res">Draw</span>` : "";
+  const side=(ids,cls,r)=>`<div class="side ${cls} ${r} ${ids.includes(me)&&!r?"me":""}">${tag(r)}${ids.map(id=>`<span class="nm">${esc(pname(id))}${id===me?" (you)":""}</span>`).join("")}<span class="avg">avg ${avg(ids.map(id=>rt(c.R,id))).toFixed(1)}</span></div>`;
+  let move="";
+  if(scored && g.format==="americano"){
+    const cl=rd.courts.map(x=>x.court).sort((a,b)=>a-b), k=cl.indexOf(cc.court);
+    const txt=r=> r==="won" ? (k>0?`↑ Up to court ${cl[k-1]}`:`Stays on court ${cc.court} (top)`) : r==="lost" ? (k<cl.length-1?`↓ Down to court ${cl[k+1]}`:`Stays on court ${cc.court} (bottom)`) : `Stays on court ${cc.court}`;
+    move=`<div class="move"><span>${txt(resA)}</span><span>${txt(resB)}</span></div>`;
+  }
+  const editing = org && rd.done && S.ui.editRound===`${g.id}:${ri}`;
+  const edit = org && (!rd.done || editing);
+  return `<div class="court"><div class="court-head"><span class="court-no">Court ${cc.court}</span>${cc.singles?`<span class="chip warn">Singles</span>`:""}</div>
+    <div class="court-body">${side(cc.a,"a",resA)}<div class="net"></div>${side(cc.b,"b",resB)}</div>
+    <div class="court-foot">${edit?`<input id="sc-${key.replace(/:/g,"-")}-a" type="number" min="0" inputmode="numeric" aria-label="Score, left pair" data-score="${key}" data-side="sa" value="${esc(sc.sa ?? cc.sa ?? "")}"><span class="score">–</span><input id="sc-${key.replace(/:/g,"-")}-b" type="number" min="0" inputmode="numeric" aria-label="Score, right pair" data-score="${key}" data-side="sb" value="${esc(sc.sb ?? cc.sb ?? "")}">`
+      : scored ? `<span class="score">${cc.sa} – ${cc.sb}</span>${was}` : `<span class="muted" style="font-size:.85rem">Score pending</span>`}</div>${move}</div>`;
+}
+function gameStandings(g){
+  const t={};
+  (g.rounds||[]).forEach(rd=>{ if(!rd.done) return; rd.courts.forEach(cc=>{ if(cc.sa==null||cc.sb==null) return;
+    const sa=+cc.sa, sb=+cc.sb;
+    const add=(ids,f,a)=>ids.forEach(id=>{ const x=t[id] ??= {id,p:0,w:0,d:0,l:0,pf:0,pa:0};
+      x.p++; x.pf+=f; x.pa+=a; if(f>a) x.w++; else if(f<a) x.l++; else x.d++; });
+    add(cc.a,sa,sb); add(cc.b,sb,sa); }); });
+  const rows=Object.values(t);
+  if(g.format==="americano") rows.sort((a,b)=>b.pf-a.pf || (b.pf-b.pa)-(a.pf-a.pa) || b.w-a.w);
+  else rows.sort((a,b)=>b.w-a.w || (b.pf-b.pa)-(a.pf-a.pa) || b.pf-a.pf);
+  return rows;
+}
+// Players tie when they have the same score (points won in Americano, matches won otherwise) and the same +/−.
+const tied = (g,a,b) => (g.format==="americano" ? a.pf===b.pf : a.w===b.w) && (a.pf-a.pa)===(b.pf-b.pa);
+function gameWinners(g){
+  const rows=gameStandings(g); if(!rows.length) return [];
+  if(g.format!=="americano"){ return rows.filter(r=>tied(g,r,rows[0])).map(r=>({id:r.id,cat:""})); }
+  const out=[];
+  ["M","F"].forEach(k=>{ const rs=rows.filter(r=>sexOf(r.id)===k); if(!rs.length) return;
+    rs.filter(r=>tied(g,r,rs[0])).forEach(r=>out.push({id:r.id,cat:k})); });
+  return out;
+}
+function standingsPanel(g){
+  const rows=gameStandings(g); if(!rows.length) return "";
+  const am=g.format==="americano";
+  const rounds=g.rounds||[], done=rounds.filter(r=>r.done).length, planned=Math.max(rounds.length, sessionPlan(g).rounds);
+  const finished = rounds.length>0 && done===rounds.length && (!am || done>=planned || g.date<today());
+  const same=(a,b)=> tied(g,a,b);
+  let pos=0; const ranked=rows.map((r,i)=>{ if(i===0||!same(r,rows[i-1])) pos=i+1; return {...r,pos}; });
+  const catPos={}; if(am) ["M","F"].forEach(k=>{ let p=0; const rs=ranked.filter(r=>sexOf(r.id)===k); rs.forEach((r,i)=>{ if(i===0||!same(r,rs[i-1])) p=i+1; catPos[r.id]=p; }); });
+  const win=gameWinners(g); const winIds=new Set(win.map(w=>w.id));
+  const verb=finished?"":"Leading ";
+  const head = am
+    ? ["M","F"].filter(k=>win.some(w=>w.cat===k)).map(k=>`<span style="display:block">${verb}${win.filter(w=>w.cat===k).length>1?`${verb?"":"Joint "}${k==="M"?"men's":"women's"} winners`:`${k==="M"?"Men's":"Women's"} winner`}: ${win.filter(w=>w.cat===k).map(w=>esc(pname(w.id))).join(" & ")}</span>`).join("")
+    : `${finished?(win.length>1?"Joint winners: ":"Winner: "):"Leading: "}${win.map(w=>esc(pname(w.id))).join(" & ")}`;
+  const noCat = am ? ranked.filter(r=>!sexOf(r.id)) : [];
+  return `<section class="panel"><div class="row between"><div><p class="eyebrow">${finished?"Final result":`After ${done} round${done===1?"":"s"}`}</p>
+    <h2>${head}</h2></div>
+    ${finished?`<span class="chip ball">🏆 Game complete</span>`:`<span class="chip court">In progress</span>`}</div>
+    <p class="muted" style="font-size:.85rem">${am?"Americano crowns a men's and a women's winner: most points won, then +/−.":"Ranked by matches won, then +/−."} Players level on both share the place.${noCat.length?` ${noCat.map(r=>esc(pname(r.id))).join(", ")} ${noCat.length>1?"haven't":"hasn't"} chosen a winners category yet.`:""}</p>
+    <div class="tw"><table><thead><tr><th>#</th><th>Player</th>${am?`<th>Category</th>`:""}<th class="r">Played</th><th class="r">Won</th><th class="r">Lost</th><th class="r">Points for</th><th class="r">Against</th><th class="r">+/−</th></tr></thead><tbody>
+    ${ranked.map(r=>{ const k=sexOf(r.id); return `<tr class="click ${winIds.has(r.id)?"lead":""}" data-act="openPlayer" data-v="${esc(r.id)}"><td><span class="medal ${winIds.has(r.id)?"m1":""}">${r.pos}</span></td><td>${esc(pname(r.id))}${r.id===meId()?" (you)":""}</td>
+      ${am?`<td>${k?`<span class="chip ${catPos[r.id]===1?"ball":""}">${k==="M"?"Men's":"Women's"} #${catPos[r.id]}</span>`:`<span class="muted">—</span>`}</td>`:""}
+      <td class="r num">${r.p}</td><td class="r num"><b>${r.w}</b>${r.d?` <span class="muted">(${r.d}D)</span>`:""}</td><td class="r num">${r.l}</td><td class="r num">${r.pf}</td><td class="r num">${r.pa}</td><td class="r num ${r.pf-r.pa>=0?"pos":"neg"}">${sign(r.pf-r.pa,0)}</td></tr>`; }).join("")}
+    </tbody></table></div></section>`;
+}
+function invitePanel(g,ros){
+  const q=(D().inviteQ?.[g.id]||"").trim().toLowerCase(); const club=S.data.locations[g.locId]?.name||"this club";
+  const pool=playersAt(g.locId).filter(p=>!ros.includes(p.id));
+  const hits = q ? pool.filter(p=>p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8) : [];
+  return `<div class="stack" style="gap:8px"><label class="f">Invite players<span class="hint">Type part of a name to find players at ${esc(club)}</span>
+      <input id="invite-${esc(g.id)}" type="text" autocomplete="off" placeholder="Start typing a name…" data-bind="inviteQ.${esc(g.id)}" data-live value="${esc(D().inviteQ?.[g.id]||"")}"></label>
+    ${q?(hits.length?`<div class="list">${hits.map(p=>{ const dec=S.data.signups[p.id]?.declined?.[g.id]; return `<div class="li"><span class="dot ${dotCls(p.id)}" title="${esc(playsIn(p.id))}"></span><span class="grow">${esc(p.name)}</span>${dec?`<span class="chip">Declined before</span>`:""}${!fitsTeam(g,p.id)?`<span class="chip warn">${g.team==="mixed"?"Not playing mixed":"Doesn't fit team"}</span>`:""}<span class="num mono">${rt(ctx().R,p.id).toFixed(1)}</span><button class="btn small primary" data-act="invite" data-g="${esc(g.id)}" data-v="${esc(p.id)}">Invite</button></div>`; }).join("")}</div>`
+      :`<p class="muted" style="font-size:.85rem">No players at ${esc(club)} match “${esc(q)}”${pool.length?"":" (everyone is already in)"}.</p>`):""}
+  </div>`;
+}
+function gameDetail(c,g){
+  const org=isOrganiser(g.locId); const ros=gameRoster(g); const elig=eligibleRoster(g); const plan=sessionPlan(g);
+  const cap=capacity(elig.length,courtList(g).length,g.singles); const rounds=g.rounds||[]; const me=meId();
+  const inG=ros.includes(me); const liveRi=rounds.findIndex(r=>!r.done);
+  const lastDone=!rounds.length||rounds[rounds.length-1].done;
+  const locPlayers=playersAt(g.locId).filter(p=>!ros.includes(p.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const lg=g.leagueId&&S.data.leagues[g.leagueId];
+  const blocked = !canPlay(me) ? "Annual membership needed to join" : !fitsTeam(g,me) ? (g.team==="mixed"&&sexOf(me)? "Mixed pairs game: set your preference to play mixed" : teamLabel(g.team)+" game") : "";
+  const myRound = liveRi>=0 ? rounds[liveRi] : null;
+  const myCourt = myRound?.courts.find(cc=>cc.a.includes(me)||cc.b.includes(me));
+  return `<button class="btn ghost" data-act="back" style="align-self:flex-start">← All games</button>
+  <section class="panel">
+    <div class="row between"><div><p class="eyebrow">${esc(S.data.locations[g.locId]?.name||"")}${lg?" · "+esc(lg.name):""}</p><h1>${esc(g.name)}</h1>
+      <p class="muted">${fmtDate(g.date)} · ${esc(g.start)}–${esc(g.end)} · courts ${courtList(g).join(", ")||"none"}</p></div>
+      <div class="row">${myPlayer()&&!org?"":""}
+        ${myPlayer()? inG?(isInvited(g,me)?`<span class="chip court">You've been invited</span><button class="btn" data-act="leave" data-v="${esc(g.id)}">Decline invite</button>`:`<button class="btn" data-act="leave" data-v="${esc(g.id)}">Leave game</button>`) : `<button class="btn primary" data-act="join" data-v="${esc(g.id)}" ${blocked?"disabled":""}>Join game</button>${blocked?`<span class="chip warn">${esc(blocked)}</span>`:""}` :""}
+        ${org?`<button class="btn" data-act="editGame" data-v="${esc(g.id)}">Edit settings</button>`:""}</div></div>
+    <div class="row"><span class="chip court">${g.format==="americano"?"Americano ladder":"Mixed rotation"}</span><span class="chip">${teamLabel(g.team)}</span>
+      <span class="chip">Similar-level partners: ${g.pLevel||"high"}</span><span class="chip">Team attribute: ${g.pTeam||"high"}</span><span class="chip">Variety: ${g.pVariety||"medium"}</span></div>
+    <div class="row">
+      <div class="clock" data-session="${toMs(g.date,g.start)}|${toMs(g.date,g.end)}"><span class="eyebrow">Session</span><span class="t">--:--</span><span class="muted" style="font-size:.78rem">${plan.rounds} rounds × ${plan.match} min</span></div>
+    </div>
+    ${myCourt?`<div class="banner info"><p><b>Round ${liveRi+1}: you're on court ${myCourt.court}</b> with ${esc(((myCourt.a.includes(me)?myCourt.a:myCourt.b).filter(x=>x!==me).map(pname).join(", "))||"no partner (singles)")} against ${esc((myCourt.a.includes(me)?myCourt.b:myCourt.a).map(pname).join(" & "))}.</p></div>`: myRound&&(myRound.sitOut||[]).includes(me)?`<div class="banner"><p><b>You sit out round ${liveRi+1}.</b></p></div>`:""}
+  </section>
+  ${standingsPanel(g)}
+  <div class="two">
+    <section class="panel"><div class="row between"><h2>Players</h2><span class="chip num">${ros.length}</span></div>
+      <p class="muted" style="font-size:.85rem">${cap.full} doubles court${cap.full===1?"":"s"}${cap.singles?" + 1 singles":""} · ${cap.sit} sit out per round</p>
+      <div class="list">${ros.sort((a,b)=>rt(c.R,b)-rt(c.R,a)).map(id=>{ const p=S.data.players[id]; const warn=!canPlay(id)?"No membership":!fitsTeam(g,id)?(g.team==="mixed"?"Not playing mixed":"Doesn't fit team attribute"):"";
+        return `<div class="li"><span class="dot ${dotCls(id)}" title="${esc(playsIn(id))}"></span><span class="grow">${esc(p.name)}${id===me?" (you)":""}</span>${warn?`<span class="chip bad">${warn}</span>`:""}<span class="num mono">${rt(c.R,id).toFixed(2)}</span>${org?`<button class="btn ghost small" data-act="pickRemove" data-g="${esc(g.id)}" data-v="${esc(id)}" aria-label="Remove ${esc(p.name)}">✕</button>`:""}</div>`; }).join("")||`<p class="muted">Nobody yet.</p>`}</div>
+      ${org?invitePanel(g,ros):""}
+    </section>
+    <section class="panel"><div class="row between"><h2>Rounds</h2><span class="chip">${rounds.length} of ${plan.rounds} planned</span></div>
+      ${org?`<div class="row">
+        ${g.format==="americano"?`<button class="btn primary" data-act="genRound" data-v="${esc(g.id)}" ${!lastDone||elig.length<2?"disabled":""}>Draw round ${rounds.length+1}</button>`
+          :`<button class="btn primary" data-act="planAll" data-v="${esc(g.id)}" ${elig.length<2?"disabled":""}>${rounds.length?"Re-plan unplayed rounds":"Plan all "+plan.rounds+" rounds"}</button><button class="btn" data-act="genRound" data-v="${esc(g.id)}" ${elig.length<2?"disabled":""}>Add one round</button>`}
+        ${rounds.length?`<button class="btn danger" data-act="clearRounds" data-v="${esc(g.id)}">${S.ui.confirm==="clr-"+g.id?"Tap again to clear":"Clear rounds"}</button>`:""}</div>
+        ${g.format==="americano"&&!lastDone?`<p class="muted" style="font-size:.85rem">Enter this round's scores to draw the next one. Winners move up a court and losers move down, then each pair splits so partners play against each other.</p>`:""}`:""}
+      ${rounds.length?rounds.map((rd,ri)=>`<div class="round">
+        <div class="row between"><h3>Round ${ri+1}</h3><div class="row">${rd.done?`<span class="chip good">Final</span>`:ri===liveRi?`<span class="chip court">Up next</span>`:`<span class="chip">Planned</span>`}
+          ${org&&!rd.done?`<button class="btn small primary" data-act="finishRound" data-g="${esc(g.id)}" data-v="${ri}">Save scores</button>`:""}
+          ${rd.editedAt?`<span class="chip warn" title="Corrected by ${esc(pname(rd.editedBy))}">Corrected ${fmtDT(rd.editedAt)}</span>`:""}
+          ${org&&rd.done&&S.ui.editRound!==`${g.id}:${ri}`?`<button class="btn small" data-act="editRound" data-g="${esc(g.id)}" data-v="${ri}">Edit scores</button>`:""}
+          ${org&&rd.done&&S.ui.editRound===`${g.id}:${ri}`?`<button class="btn small primary" data-act="saveCorrection" data-g="${esc(g.id)}" data-v="${ri}">Save corrections</button><button class="btn small" data-act="cancelEdit" data-g="${esc(g.id)}" data-v="${ri}">Cancel</button>`:""}</div></div>
+        ${org&&rd.done&&S.ui.editRound===`${g.id}:${ri}`?`<p class="muted" style="font-size:.85rem">Change any score and save. Results and levels update straight away.${g.format==="americano"&&ri<rounds.length-1?` Round ${ri+2} was drawn from the old scores and stays as drawn${rounds.slice(ri+1).some(r=>r.done)?".":"; you can re-draw it after saving."}`:""}</p>`:""}
+        ${org&&g.format==="americano"&&rd.done&&rd.editedAt&&ri===rounds.length-2&&!rounds[ri+1].done&&(rounds[ri+1].drawnAt||0)<rd.editedAt?`<div class="banner"><p>Round ${ri+2} was drawn before this correction, so its courts may not match who won.</p><button class="btn small primary" data-act="redrawNext" data-g="${esc(g.id)}" data-v="${ri}">Re-draw round ${ri+2}</button></div>`:""}
+        ${ri===liveRi?`<div class="row" style="align-items:stretch">${roundClock(g,rd,ri,org)}${soundButton()}</div>`:""}
+        <div class="courts">${rd.courts.map((cc,ci)=>courtCard(g,rd,ri,ci,cc,c,org)).join("")}</div>
+        ${(rd.sitOut||[]).length?`<p class="sitout">Sitting out: ${rd.sitOut.map(id=>`<b>${esc(pname(id))}</b>`).join(", ")}</p>`:""}
+      </div>`).join(""):`<div class="empty">${org?"No rounds yet. Plan them once players have signed up.":"The organiser hasn't drawn the rounds yet."}</div>`}
+    </section>
+  </div>`;
+}
+/* buzzer: Web Audio needs one tap on the page before it may play */
+let AC=null; const SOUND={on:true};
+try{ SOUND.on = localStorage.getItem("courtside-sound")!=="off"; }catch(e){}
+function unlockAudio(){ try{ AC = AC || new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); }catch(e){} }
+const audioReady = () => !!AC && AC.state==="running";
+function tone(t0,freq,dur,vol=0.25,type="square"){ const o=AC.createOscillator(), gn=AC.createGain(); o.type=type; o.frequency.value=freq;
+  gn.gain.setValueAtTime(0.0001,t0); gn.gain.exponentialRampToValueAtTime(vol,t0+0.02); gn.gain.setValueAtTime(vol,t0+dur-0.05); gn.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(gn).connect(AC.destination); o.start(t0); o.stop(t0+dur+0.02); }
+function buzzer(){ if(!SOUND.on||!audioReady()) return; const t=AC.currentTime+0.05;
+  [0,0.3,0.6].forEach(d=>tone(t+d,880,0.18)); tone(t+0.95,660,1.1,0.3,"sawtooth"); }
+function soundButton(){ const lab = !SOUND.on ? "🔕 Buzzer off" : audioReady() ? "🔔 Buzzer on" : "🔔 Tap to allow buzzer";
+  return `<button class="btn small" data-act="toggleSound" style="align-self:center" title="Plays a buzzer on this device when the match clock reaches zero">${lab}</button>`; }
+function roundClock(g,rd,ri,org){
+  const total=(sessionPlan(g).match||0)*60;
+  const state = rd.startedAt ? `data-round="${rd.startedAt+total*1000}"` : `data-roundpaused="${rd.pausedLeft ?? total}"`;
+  return `<div class="clock ${rd.startedAt?"live":""}" ${state}><span class="eyebrow">Round ${ri+1} · ${sessionPlan(g).match} min match</span><span class="t">--:--</span>
+    ${org?`<span class="row" style="gap:6px;margin-top:4px">${rd.startedAt?`<button class="btn small" data-act="timerPause" data-g="${esc(g.id)}" data-v="${ri}">Pause</button>`:`<button class="btn small" data-act="timerStart" data-g="${esc(g.id)}" data-v="${ri}">${rd.pausedLeft!=null&&rd.pausedLeft<total?"Resume":"Start"}</button>`}<button class="btn small" data-act="timerReset" data-g="${esc(g.id)}" data-v="${ri}">Reset</button></span>`:""}</div>`;
+}
+
+/* leagues */
+function leaguesList(c){
+  const loc=c.loc; const ls=Object.values(S.data.leagues).filter(l=>l.locId===loc.id);
+  return `<div class="row between"><h1>Leagues at ${esc(loc.name)}</h1>${isOrganiser(loc.id)?`<button class="btn primary" data-act="newLeague">New league</button>`:""}</div>
+  ${ls.length?`<div class="cards">${ls.map(l=>`<button class="gcard" data-act="openLeague" data-v="${esc(l.id)}"><span class="when">${fmtDate(l.from)} – ${fmtDate(l.to)}</span><h3>${esc(l.name)}</h3>
+    <span class="row">${+l.minStart?`<span class="chip">Start ≥ ${l.minStart}</span>`:""}${+l.minWeighted?`<span class="chip">Weighted ≥ ${l.minWeighted}</span>`:""}${+l.minIndex?`<span class="chip">Index ≥ ${l.minIndex}</span>`:""}${+l.minGames?`<span class="chip">${l.minGames}+ matches</span>`:""}</span>
+    <span class="muted" style="font-size:.85rem">${leagueMembers(l).length} players</span></button>`).join("")}</div>`:`<div class="empty">No leagues yet.</div>`}`;
+}
+function leagueEdit(c){
+  const l=D().league; const lf=(k,label,type="number",extra="")=>`<label class="f">${label}<input id="le-${k}" type="${type}" data-bind="league.${k}" value="${esc(l[k]??"")}" ${extra}></label>`;
+  return `<button class="btn ghost" data-act="back">← Back</button>
+  <section class="panel"><h1>${l.id?"Edit league":"New league"}</h1>
+    ${lf("name","League name","text",'placeholder="e.g. Winter Ladder"')}
+    <p class="eyebrow">Entry requirements</p><p class="muted" style="font-size:.85rem;margin-top:-8px">Leave a field at 0 to skip it. Club index is the player's percentile at this location, scaled 1–10.</p>
+    <div class="grid g3">${lf("minStart","Minimum starting level",'number','min="0" max="10" step="0.5"')}${lf("minWeighted","Minimum weighted level",'number','min="0" max="10" step="0.1"')}${lf("minIndex","Minimum club index",'number','min="0" max="10" step="0.5"')}${lf("minGames","Minimum matches played",'number','min="0"')}${lf("from","Counting matches from","date")}${lf("to","Until","date")}</div>
+    <p class="eyebrow">Scoring</p><div class="grid g3">${lf("winPts","Points for a win",'number','min="0"')}${lf("drawPts","Points for a draw",'number','min="0"')}${lf("lossPts","Points for a loss",'number','min="0"')}</div>
+    <label class="f">League rules<textarea id="le-rules" data-bind="league.rules">${esc(l.rules||"")}</textarea></label>
+    <div class="row"><button class="btn primary" data-act="saveLeague">${l.id?"Save changes":"Create league"}</button><button class="btn" data-act="back">Cancel</button>
+    ${l.id?`<button class="btn danger" data-act="deleteLeague" data-v="${esc(l.id)}">${S.ui.confirm==="dell-"+l.id?"Tap again to delete":"Delete league"}</button>`:""}</div>
+  </section>`;
+}
+function leagueDetail(c,l){
+  const org=isOrganiser(l.locId); const me=meId(); const members=leagueMembers(l); const inL=members.includes(me);
+  const ch=myPlayer()?leagueChecks(l,me,c):[]; const ok=ch.length&&ch.every(x=>x.ok); const table=leagueTable(l,c);
+  const others=playersAt(l.locId).filter(p=>!members.includes(p.id)).map(p=>({p,ok:leagueChecks(l,p.id,c).every(x=>x.ok)})).sort((a,b)=>(b.ok-a.ok)||a.p.name.localeCompare(b.p.name));
+  return `<button class="btn ghost" data-act="back" style="align-self:flex-start">← All leagues</button>
+  <section class="panel"><div class="row between"><div><p class="eyebrow">${fmtDate(l.from)} – ${fmtDate(l.to)}</p><h1>${esc(l.name)}</h1></div>
+    <div class="row">${myPlayer()? inL?`<button class="btn" data-act="leaveLeague" data-v="${esc(l.id)}">Leave league</button>`:`<button class="btn primary" data-act="joinLeague" data-v="${esc(l.id)}" ${ok?"":"disabled"}>Join league</button>`:""}
+    ${org?`<button class="btn" data-act="editLeague" data-v="${esc(l.id)}">Edit league</button>`:""}</div></div>
+    ${l.rules?`<p style="max-width:65ch">${esc(l.rules)}</p>`:""}
+    <p class="muted" style="font-size:.85rem">Win ${+l.winPts||0} pts · draw ${+l.drawPts||0} · loss ${+l.lossPts||0}. Only games tagged to this league count towards the table.</p>
+    ${myPlayer()?`<div><p class="eyebrow" style="margin-bottom:6px">Your eligibility</p><div class="checks">${ch.map(x=>`<div class="checkline"><span class="${x.ok?"ok":"no"}">${x.ok?"✓":"✕"}</span><span>${esc(x.label)}${x.always?"":`: needs ${esc(x.need)}, you have <b class="num">${esc(x.have)}</b>`}</span></div>`).join("")}</div></div>`:""}
+  </section>
+  <section class="stack"><h2>Table</h2>
+    ${table.length?`<div class="tw"><table><thead><tr><th>#</th><th>Player</th><th class="r">P</th><th class="r">W</th><th class="r">L</th><th class="r">+/−</th><th class="r">Pts</th><th class="r">League index</th><th class="r">Weighted</th>${org?"<th></th>":""}</tr></thead>
+    <tbody>${table.map((r,i)=>`<tr class="click" data-act="openPlayer" data-v="${esc(r.id)}"><td class="num">${i+1}</td><td>${esc(pname(r.id))}${r.id===me?" (you)":""}</td><td class="r num">${r.p}</td><td class="r num">${r.w}</td><td class="r num">${r.l}</td><td class="r num">${sign(r.gf-r.ga,0)}</td><td class="r num"><b>${r.pts}</b></td><td class="r num">${r.idx!=null?r.idx.toFixed(1):"—"}</td><td class="r num">${r.r.toFixed(2)}</td>${org?`<td><button class="btn ghost small" data-act="leagueRemove" data-g="${esc(l.id)}" data-v="${esc(r.id)}">Remove</button></td>`:""}</tr>`).join("")}</tbody></table></div>`:`<div class="empty">No players have joined yet.</div>`}
+  </section>
+  ${org?`<section class="panel"><h2>Other players at this club</h2><div class="list">${others.map(({p,ok})=>`<div class="li"><span class="dot ${dotCls(p.id)}" title="${esc(playsIn(p.id))}"></span><span class="grow">${esc(p.name)}</span>${ok?`<span class="chip good">Eligible</span>`:`<span class="chip">Not eligible</span>`}<button class="btn small" data-act="leagueAdd" data-g="${esc(l.id)}" data-v="${esc(p.id)}">Add</button></div>`).join("")||`<p class="muted">Everyone is in.</p>`}</div></section>`:""}`;
+}
+
+/* rankings */
+function rankings(c){
+  const ps=playersAt(c.loc.id).map(p=>c.R[p.id]).filter(Boolean).sort((a,b)=>b.r-a.r);
+  return `<div class="row between"><h1>Rankings · ${esc(c.loc.name)}</h1></div>
+  <div class="tw"><table><thead><tr><th>#</th><th>Player</th><th class="r">Starting</th><th class="r">Result factor</th><th class="r">Margin factor</th><th class="r">Weighted level</th><th class="r">Club index</th><th class="r">Matches</th><th class="r">W–L</th></tr></thead>
+  <tbody>${ps.map((r,i)=>`<tr class="click" data-act="openPlayer" data-v="${esc(r.id)}"><td class="num">${i+1}</td><td>${esc(pname(r.id))}${r.id===meId()?" (you)":""}</td><td class="r num">${r.L0.toFixed(1)}</td><td class="r num ${r.res>=0?"pos":"neg"}">${sign(r.res)}</td><td class="r num ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</td><td class="r num"><b>${r.r.toFixed(2)}</b></td><td class="r num">${c.club[r.id]?.toFixed(1)??"—"}</td><td class="r num">${r.n}</td><td class="r num">${r.w}–${r.l}</td></tr>`).join("")}</tbody></table></div>
+  <details class="panel"><summary>How levels are calculated</summary>
+    <div class="stack" style="max-width:68ch;font-size:.92rem">
+      <p><b>Starting level</b> is what each player entered when they signed up (1–10). Every match then adjusts it.</p>
+      <p>Before each match the system works out the <b>expected result</b> from the two pairs' average levels: equal pairs are 50/50, a 1-level gap makes the stronger pair about 64% favourites, a 2-level gap about 76%.</p>
+      <p><b>Result factor</b> moves you by half the step size × (actual result − expected). Beat a stronger pair and you gain a lot; lose to a weaker pair and you drop a lot. <b>Margin factor</b> does the same with your share of the points, so a 9–7 loss costs far less than 2–14.</p>
+      <p>The <b>step size</b> starts at 0.9 levels and shrinks as you play (about 0.44 after 10 matches, 0.27 after 30), so new players settle quickly and established levels stay steady. <b>Weighted level</b> = starting level + result factor + margin factor, kept between 1 and 10. It is the level used to balance pairs.</p>
+      <p>If an organiser resets a player's starting level, their result and margin factors go back to 0 and only later matches count.</p>
+      <p><b>Club index</b> and <b>league index</b> rank you against everyone at the club, or in the league, on a 1–10 scale: the top player is 10, the bottom 1.</p>
+    </div></details>`;
+}
+
+/* admin */
+function admin(c){
+  const t=S.ui.adminTab;
+  const sub=[["members","Members"],["roles","Organisers"],["subs","Subscriptions"],["locs","Locations"]];
+  return `<div class="row between"><h1>Admin</h1><div class="subtabs">${sub.map(([k,l])=>`<button class="btn small" data-act="adminTab" data-v="${k}" aria-current="${t===k}">${l}</button>`).join("")}</div></div>
+    ${t==="members"?adminMembers(c):t==="roles"?adminRoles(c):t==="subs"?adminSubs(c):adminLocs(c)}`;
+}
+function nextAnniv(joined){ if(!joined) return null; const t=today(); let y=+t.slice(0,4); let d=`${y}${joined.slice(4,10)}`; if(d<=t) d=`${y+1}${joined.slice(4,10)}`;
+  const days=Math.round((new Date(d+"T12:00:00")-new Date(t+"T12:00:00"))/864e5); return {d,days,years:+d.slice(0,4)-+joined.slice(0,4)}; }
+function adminMembers(c){
+  const ps=Object.values(S.data.players).sort((a,b)=>a.name.localeCompare(b.name));
+  return `<div class="tw"><table><thead><tr><th>Player</th><th>Email</th><th>Roles</th><th>Membership</th><th class="r">Level</th><th>Joined</th><th>Next anniversary</th><th>Last sign-in</th><th class="r">Sign-ins</th><th>Clubs</th></tr></thead><tbody>
+  ${ps.map(p=>{ const mi=memberInfo(p.id); const an=nextAnniv(p.joinedAt); const roles=[...(S.mode==="sample"&&p.id==="me"||S.mode==="live"&&ADMIN_EMAILS.includes((S.emails[p.id]||"").toLowerCase())?["Admin"]:[]), ...(locs().some(l=>(l.organiserIds||[]).includes(p.id))?["Organiser"]:[]),"Player"];
+    return `<tr class="click" data-act="openPlayer" data-v="${esc(p.id)}"><td><span class="dot ${dotCls(p.id)}" title="${esc(playsIn(p.id))}" style="display:inline-block;margin-right:6px"></span>${esc(p.name)}</td><td class="mono">${esc(S.emails[p.id]||(S.mode==="sample"?"sample only":"—"))}</td>
+    <td>${roles.map(r=>`<span class="chip ${r==="Admin"?"ball":r==="Organiser"?"court":""}">${r}</span>`).join(" ")}</td><td><span class="chip ${mi.cls}">${esc(mi.label)}</span></td><td class="r num">${rt(c.R,p.id).toFixed(2)}</td>
+    <td class="num">${fmtDate(p.joinedAt)}</td><td class="num">${an?`${fmtDate(an.d)} <span class="muted">(${an.years} yr · ${an.days}d)</span>`:"—"}</td><td class="num">${fmtDT(p.lastSignIn)}</td><td class="r num">${p.signInCount||0}</td>
+    <td>${(p.locations||[]).map(l=>esc(S.data.locations[l]?.name||"?")).join(", ")}</td></tr>`; }).join("")||`<tr><td colspan="10" class="muted">No players yet.</td></tr>`}
+  </tbody></table></div>`;
+}
+function adminRoles(c){
+  const reqs=pendingRequests(); ensureEmails();
+  const apps = `<section class="panel"><div class="row between"><h2>Organiser applications</h2><span class="chip ${reqs.length?"warn":""}">${reqs.length} waiting</span></div>
+    ${reqs.length?`<div class="list">${reqs.map(r=>`<div class="li" style="flex-wrap:wrap;align-items:flex-start"><div class="grow" style="white-space:normal"><b>${esc(pname(r.id)||r.name)}</b> <span class="muted mono" style="font-size:.8rem">${esc(S.emails[r.id]||"")}</span><br>
+      <span style="font-size:.88rem">${esc(reqWhere(r))}</span>${r.note?`<br><span class="muted" style="font-size:.85rem">“${esc(r.note)}”</span>`:""}<br><span class="muted" style="font-size:.78rem">Applied ${fmtDT(r.at)}</span></div>
+      <div class="row"><button class="btn small primary" data-act="approveApp" data-v="${esc(r.id)}">Approve</button><button class="btn small danger" data-act="declineApp" data-v="${esc(r.id)}">${S.ui.confirm==="dec-"+r.id?"Tap again to decline":"Decline"}</button></div></div>`).join("")}</div>`
+      :`<p class="muted" style="font-size:.88rem">No applications waiting. New players can apply when they first sign in, or from Home.</p>`}</section>`;
+  return apps + locs().map(l=>{ const ps=playersAt(l.id).sort((a,b)=>a.name.localeCompare(b.name));
+    return `<section class="panel"><div class="row between"><h2>${esc(l.name)}</h2><span class="chip court">${(l.organiserIds||[]).length} organiser${(l.organiserIds||[]).length===1?"":"s"}</span></div>
+    <p class="muted" style="font-size:.85rem">Organisers can create games, draw rounds, run timers, enter scores and set up leagues at this location. You always have organiser rights as admin.</p>
+    <div class="list">${ps.map(p=>{ const on=(l.organiserIds||[]).includes(p.id); return `<div class="li"><span class="dot ${dotCls(p.id)}" title="${esc(playsIn(p.id))}"></span><span class="grow">${esc(p.name)}</span>${on?`<span class="chip court">Organiser</span>`:""}<button class="btn small ${on?"danger":""}" data-act="toggleOrg" data-g="${esc(l.id)}" data-v="${esc(p.id)}">${on?"Remove organiser":"Make organiser"}</button></div>`; }).join("")||`<p class="muted">No players at this location yet.</p>`}</div></section>`; }).join("");
+}
+function adminSubs(c){
+  const st=settings(); const d=D(); d.set ??= {price:st.price, trialDays:st.trialDays}; d.disc ??= {code:"",pct:"10",expires:""};
+  const ps=Object.values(S.data.players).sort((a,b)=>a.name.localeCompare(b.name));
+  const infos=ps.map(p=>({p,mi:memberInfo(p.id)}));
+  const yearAgo=addDays(today(),-365);
+  const rev=Object.values(S.data.memberships).flatMap(m=>m.history||[]).filter(h=>h.date>=yearAgo).reduce((t,h)=>t+(+h.amount||0),0);
+  const due=infos.filter(x=>["active","trial"].includes(x.mi.state)&&x.mi.until&&x.mi.until<=addDays(today(),30)).length;
+  return `<div class="kpis">
+    <div class="kpi"><p class="eyebrow">Members</p><div class="v">${infos.filter(x=>x.mi.state==="active").length}</div></div>
+    <div class="kpi"><p class="eyebrow">On trial</p><div class="v">${infos.filter(x=>x.mi.state==="trial").length}</div></div>
+    <div class="kpi"><p class="eyebrow">Collected, last 12 months</p><div class="v">${money(rev)}</div></div>
+    <div class="kpi"><p class="eyebrow">Renewals due in 30 days</p><div class="v">${due}</div></div></div>
+  <section class="panel"><div class="row between"><div><h2>Live membership</h2><p class="muted" style="font-size:.88rem">${st.membershipLive?"On: only members, trials and complimentary players can join games.":"Off: joining is free and every player can join games."}</p></div>
+    <button class="btn ${st.membershipLive?"danger":"primary"}" data-act="toggleLive">${st.membershipLive?"Turn off":"Turn on live membership"}</button></div>
+    <div class="grid g3"><label class="f">Annual membership price (£)<input id="st-price" type="number" min="0" step="1" data-bind="set.price" value="${esc(d.set.price)}"></label>
+    <label class="f">Trial length (days)<input id="st-trial" type="number" min="0" data-bind="set.trialDays" value="${esc(d.set.trialDays)}"></label>
+    <div class="f" style="justify-content:flex-end"><button class="btn" data-act="savePricing">Save pricing</button></div></div></section>
+  <section class="panel"><h2>Discount codes</h2>
+    <div class="list">${(st.discounts||[]).map((x,i)=>`<div class="li"><span class="chip ball mono">${esc(x.code)}</span><span class="grow">${x.pct}% off · ${money(st.price*(1-x.pct/100))}${x.expires?` · until ${fmtDate(x.expires)}`:""}${x.expires&&x.expires<today()?` <span class="chip bad">Expired</span>`:""}</span><button class="btn ghost small" data-act="removeDisc" data-v="${i}">Remove</button></div>`).join("")||`<p class="muted">No discount codes.</p>`}</div>
+    <div class="grid g3"><label class="f">Code<input id="dc-code" type="text" data-bind="disc.code" value="${esc(d.disc.code)}" placeholder="e.g. FOUNDER20"></label><label class="f">% off<input id="dc-pct" type="number" min="1" max="100" data-bind="disc.pct" value="${esc(d.disc.pct)}"></label><label class="f">Expires (optional)<input id="dc-exp" type="date" data-bind="disc.expires" value="${esc(d.disc.expires)}"></label></div>
+    <div><button class="btn" data-act="addDisc">Add code</button></div></section>
+  <section class="stack"><h2>Player subscriptions</h2><p class="muted" style="font-size:.88rem">Payments are taken outside the app. Record them here to activate a year's membership from today.</p>
+  <div class="tw"><table><thead><tr><th>Player</th><th>Status</th><th>Valid until</th><th>Last paid</th><th>Discount</th><th>Actions</th></tr></thead><tbody>
+  ${infos.map(({p,mi})=>{ const m=S.data.memberships[p.id]||{}; const last=(m.history||[])[0]; const code=D().pay?.[p.id]||"";
+    return `<tr><td>${esc(p.name)}</td><td><span class="chip ${mi.cls}">${esc(mi.state==="none"?"None":mi.state[0].toUpperCase()+mi.state.slice(1))}</span></td><td class="num">${fmtDate(m.until)}</td><td class="num">${last?`${money(last.amount)} on ${fmtDate(last.date)}${last.code?` (${esc(last.code)})`:""}`:"—"}</td>
+    <td><select id="pay-${esc(p.id)}" data-bind="pay.${esc(p.id)}" style="width:auto"><option value="">Full price</option>${(st.discounts||[]).filter(x=>!x.expires||x.expires>=today()).map(x=>`<option value="${esc(x.code)}" ${code===x.code?"selected":""}>${esc(x.code)} (−${x.pct}%)</option>`).join("")}</select></td>
+    <td><div class="row" style="flex-wrap:nowrap"><button class="btn small primary" data-act="recordPay" data-v="${esc(p.id)}">Record payment</button><button class="btn small" data-act="startTrial" data-v="${esc(p.id)}">Trial</button><button class="btn small" data-act="setMem" data-g="comp" data-v="${esc(p.id)}">Comp</button>${mi.state!=="none"?`<button class="btn small danger" data-act="setMem" data-g="none" data-v="${esc(p.id)}">Cancel</button>`:""}</div></td></tr>`; }).join("")}
+  </tbody></table></div></section>`;
+}
+function ensureEmails(){ if(S.mode==="live" && isAdmin() && !ensureEmails.t){ ensureEmails.t=setTimeout(()=>{ ensureEmails.t=null; loadEmails().then(schedule); },300); } }
+function adminLocs(){
+  const d=D(); d.loc ??= {name:"",courts:"4"};
+  return `${locs().map(l=>{ d.locEdit ??= {}; const e=d.locEdit[l.id] ??= {name:l.name, courts:String((l.courts||[]).join(", "))};
+    return `<section class="panel"><div class="grid g2"><label class="f">Location name<input id="le-n-${esc(l.id)}" type="text" data-bind="locEdit.${esc(l.id)}.name" value="${esc(e.name)}"></label>
+    <label class="f">Court numbers<span class="hint">Comma-separated</span><input id="le-c-${esc(l.id)}" type="text" data-bind="locEdit.${esc(l.id)}.courts" value="${esc(e.courts)}"></label></div>
+    <div class="row"><button class="btn" data-act="saveLoc" data-v="${esc(l.id)}">Save</button><span class="muted" style="font-size:.85rem">${playersAt(l.id).length} players · ${(l.organiserIds||[]).length} organisers</span></div></section>`; }).join("")}
+  <section class="panel flat"><h2>Add a location</h2><div class="grid g2"><label class="f">Name<input id="nl-name" type="text" data-bind="loc.name" value="${esc(d.loc.name)}"></label><label class="f">Number of courts<input id="nl-courts" type="number" min="1" data-bind="loc.courts" value="${esc(d.loc.courts)}"></label></div>
+  <div><button class="btn primary" data-act="createLoc">Add location</button></div></section>
+  ${S.mode==="live"?`<p class="muted" style="font-size:.85rem">Admin rights belong to the club owner (${ADMIN_EMAIL}). <button class="btn ghost small" data-act="useSample">Open sample data</button></p>`:""}`;
+}
+
+/* modal */
+function modal(c){
+  const m=S.ui.modal; if(!m) return "";
+  let inner="";
+  if(m.type==="profile") inner=profileForm(false, m.id);
+  if(m.type==="apply"){ const f=(D().apply ??= {reqLoc:(myPlayer()?.locations||[])[0]||"", newName:"", newCourts:"4", note:""});
+    inner=`<div class="row between"><div><p class="eyebrow">Organisers</p><h2>Apply to be an organiser</h2></div><button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div>
+      <p class="muted" style="font-size:.9rem">Organisers set up games, draw rounds, run the match clock, enter scores and create leagues. The admin reviews every application.</p>
+      ${applyFields(f,"apply")}<div class="row"><button class="btn primary" data-act="submitApply">Send application</button><button class="btn" data-act="closeModal">Cancel</button></div>`; }
+  if(m.type==="player"){ const p=S.data.players[m.id]; const r=c.R[m.id]; if(!p||!r) return "";
+    const expRate=r.n? r.expSum/r.n : 0, actual=r.n? (r.w+r.d*0.5)/r.n : 0;
+    inner=`<div class="row between"><div><p class="eyebrow">${esc(playsIn(m.id))} · ${LEVELS[Math.round(r.L0)]} at sign-up</p><h2>${esc(p.name)}</h2></div><div class="row">${isAdmin()&&m.id!==meId()?`<button class="btn small" data-act="adminEditPlayer" data-v="${esc(m.id)}">Edit profile</button>`:""}<button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div></div>
+      ${ratingPanel(c,m.id)}
+      ${canSetLevel(m.id)?(()=>{ const lo=S.data.levels[m.id]; const cur=startLevel(m.id); const dv=D().lvl?.[m.id] ?? cur;
+        return `<div class="banner info"><p><b>Starting level ${cur}</b> · ${LEVELS[Math.round(cur)]||""}<br><span class="muted" style="font-size:.82rem">${lo?`Reset ${fmtDT(lo.at)} by ${esc(pname(lo.by))}. Before that: starting ${lo.prev}${lo.prevWeighted!=null?`, weighted ${(+lo.prevWeighted).toFixed(2)}`:""}.`:`Set by the player at sign-up.`} Changing it is a fresh start: result and margin factors go back to 0 and only matches after the change move the level.</span></p>
+          <select id="lvl-${esc(m.id)}" data-bind="lvl.${esc(m.id)}" style="width:auto" aria-label="New starting level">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${+dv===n?"selected":""}>${n} · ${LEVELS[n]}</option>`).join("")}</select>
+          <button class="btn primary small" data-act="saveLevel" data-v="${esc(m.id)}">Save level</button></div>`; })():""}
+      <div class="tw"><table><tbody>
+        <tr><td>Starting level (self-assessed)</td><td class="r num">${r.L0.toFixed(2)}</td></tr>
+        <tr><td>Result factor · wins and losses against expectation</td><td class="r num ${r.res>=0?"pos":"neg"}">${sign(r.res)}</td></tr>
+        <tr><td>Margin factor · share of points won</td><td class="r num ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</td></tr>
+        <tr><td><b>Weighted level</b></td><td class="r num"><b>${r.r.toFixed(2)}</b></td></tr>
+        <tr><td>Current step size (shrinks with matches played)</td><td class="r num">${r.k.toFixed(2)}</td></tr>
+        <tr><td>Average opponent level</td><td class="r num">${r.n?(r.oppSum/r.n).toFixed(2):"—"}</td></tr>
+        <tr><td>Expected vs actual win rate</td><td class="r num">${Math.round(expRate*100)}% → ${Math.round(actual*100)}%</td></tr>
+        <tr><td>Upset wins (under 40% expected) · upset losses (over 60%)</td><td class="r num">${r.upsets} · ${r.badLosses}</td></tr>
+      </tbody></table></div>
+      ${r.hist.length?`<div><p class="eyebrow" style="margin-bottom:6px">Recent matches</p><div class="tw"><table><thead><tr><th>Date</th><th>With</th><th>Against</th><th class="r">Score</th><th class="r">Expected</th><th class="r">Change</th></tr></thead><tbody>
+        ${r.hist.slice(-10).reverse().map(h=>`<tr><td class="num">${fmtDate(h.date)} R${h.round}</td><td>${esc(h.partners.map(pname).join(", ")||"Singles")}</td><td>${esc(h.opps.map(pname).join(" & "))}</td><td class="r num">${h.score}</td><td class="r num">${Math.round(h.exp*100)}%</td><td class="r num ${h.delta>=0?"pos":"neg"}">${sign(h.delta)}</td></tr>`).join("")}</tbody></table></div></div>`:`<p class="muted">No matches played yet.</p>`}
+      ${isAdmin()?`<div><p class="eyebrow" style="margin-bottom:6px">Admin</p><p style="font-size:.9rem">Joined ${fmtDate(p.joinedAt)} · ${esc(memberInfo(m.id).label)} · ${p.signInCount||0} sign-ins</p>
+        ${(p.signIns||[]).length?`<p class="muted mono" style="font-size:.78rem">${p.signIns.map(fmtDT).join(" · ")}</p>`:""}</div>`:""}`;
+  }
+  return `<div class="modal-bg" data-act="bgClose"><div class="modal" role="dialog" aria-modal="true">${inner}</div></div>`;
+}
+
+/* timers */
+function fmtClock(sec){ sec=Math.max(0,Math.round(sec)); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return (h?h+":"+String(m).padStart(2,"0"):String(m).padStart(2,"0"))+":"+String(s).padStart(2,"0"); }
+function tick(){
+  const now=Date.now();
+  document.querySelectorAll("[data-session]").forEach(el=>{ const [a,b]=el.dataset.session.split("|").map(Number); const t=el.querySelector(".t"), lab=el.querySelector(".eyebrow");
+    if(now<a){ const s=(a-now)/1000; lab.textContent="Session starts in"; t.textContent= s>86400? Math.floor(s/86400)+"d "+fmtClock(s%86400).slice(0,-3) : fmtClock(s); el.classList.remove("live"); }
+    else if(now<b){ lab.textContent="Session ends in"; t.textContent=fmtClock((b-now)/1000); el.classList.add("live"); }
+    else { lab.textContent="Session"; t.textContent="Finished"; el.classList.remove("live"); } });
+  document.querySelectorAll("[data-round]").forEach(el=>{ const end=+el.dataset.round, left=(end-now)/1000;
+    const prev=tick.last[end]; tick.last[end]=left;
+    if(prev!=null && prev>0 && left<=0 && now-end<5000 && !tick.fired.has(end)){ tick.fired.add(end); buzzer(); } el.querySelector(".t").textContent= left>0? fmtClock(left) : "Time!"; el.classList.toggle("over",left<=0); el.classList.toggle("live",left>0); });
+  document.querySelectorAll("[data-roundpaused]").forEach(el=>{ el.querySelector(".t").textContent=fmtClock(+el.dataset.roundpaused); });
+}
+tick.last={}; tick.fired=new Set();
+setInterval(tick,500);
+
+/* ---------- actions ---------- */
+function signup(pid){ return clone(S.data.signups[pid]||{games:[],leagues:[]}); }
+function curGame(id){ return clone(S.data.games[id]); }
+const A = {
+  tab(v){ S.ui.tab=v; S.ui.view=null; S.ui.confirm=null; window.scrollTo(0,0); },
+  back(){ const v=S.ui.view; if(v?.type==="gameEdit"&&v.id) S.ui.view={type:"game",id:v.id}; else if(v?.type==="leagueEdit"&&v.id) S.ui.view={type:"league",id:v.id}; else S.ui.view=null; S.ui.confirm=null; },
+  useSample(){ loadSample(); S.ui.tab="home"; },
+  useLive(){ S.data=emptyData(); S.loaded={}; S.ui.view=null; S.ui.loc=null; if(S.me.id) startLive(); else { S.mode="signedout"; } },
+  retryLive(){ startLive(); },
+  async signIn(){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo: location.origin+location.pathname}}); if(error) toast("Couldn't start Google sign-in: "+error.message); },
+  async signOut(){ await sb.auth.signOut(); },
+  openGame(v){ S.ui.tab="games"; S.ui.view={type:"game",id:v}; window.scrollTo(0,0); },
+  openLeague(v){ S.ui.tab="leagues"; S.ui.view={type:"league",id:v}; window.scrollTo(0,0); },
+  openPlayer(v){ S.ui.modal={type:"player",id:v}; },
+  closeModal(){ S.ui.modal=null; delete D().prof; },
+  editProfile(){ delete D().prof; S.ui.modal={type:"profile"}; },
+  adminEditPlayer(v){ if(!isAdmin()) return; delete D().prof; S.ui.modal={type:"profile", id:v}; },
+  async saveLevel(v){ if(!canSetLevel(v)) return toast("Only an organiser or the admin can change starting levels.");
+    const nv=+(D().lvl?.[v] ?? startLevel(v)); const cur=startLevel(v); if(nv===cur) return toast("That's already the starting level.");
+    if(await put("levels",v,{level:nv, prev:cur, prevWeighted:+(ctx().R[v]?.r ?? cur).toFixed(2), by:meId(), at:Date.now()})){ if(D().lvl) delete D().lvl[v]; toast(`${pname(v)} reset to level ${nv} · factors back to 0`); } },
+  setLevel(v){ D().prof.level=+v; },
+  async saveProfile(){ const f=D().prof; const id=f.id||meId(); if(!id) return;
+    const other = id!==meId(); if(other && !isAdmin()) return toast("Only the admin can edit other players.");
+    if(!other && !S.data.players[id] && !f.path) return toast("Choose whether you're joining as a player or applying to organise.");
+    if(!f.name.trim()) return toast(other?"Add a name.":"Add your name.");
+    if(!f.sex) return toast("Choose man or woman.");
+    const ex=S.data.players[id]; const now=Date.now();
+    if(!ex && !other){
+      if(!f.path) return toast("Choose whether you're joining as a player or applying to organise.");
+      if(f.path==="player"){ if(!f.reqLoc) return toast("Choose your padel location."); f.locs=[f.reqLoc]; }
+      else { const err=applyCheck(f); if(err) return toast(err); f.locs = f.reqLoc==="__new" ? [] : [f.reqLoc]; }
+    } else if(!f.locs.length) return toast("Choose at least one club.");
+    const p={...(ex||{}), id, name:f.name.trim().slice(0,40), gender:f.sex, pref:f.pref==="mixed"?"mixed":"same", locations:f.locs,
+      level: ex ? ex.level : +f.level,
+      joinedAt: ex?.joinedAt || today(), lastSignIn: ex?.lastSignIn || (other?null:now), signInCount: ex?.signInCount || (other?0:1), signIns: ex?.signIns || (other?[]:[now])};
+    delete p.cat;
+    if(!(await put("players",id,p))) return;
+    if(!ex && !other && f.path==="organiser"){ const r=applyRecord(f); r.name=p.name; await put("organiser_requests",id,r); }
+    if(ex && canSetLevel(id) && +f.level!==startLevel(id)){ const cur=startLevel(id); await put("levels",id,{level:+f.level, prev:cur, prevWeighted:+(ctx().R[id]?.r ?? cur).toFixed(2), by:meId(), at:now}); }
+    S.ui.modal = other ? {type:"player", id} : null; delete D().prof; toast(!ex?(f.path==="organiser"?"Profile created · application sent to the admin":"Welcome to the club"):other?`${p.name} updated`:"Profile saved");
+  },
+  async createLoc(){ const f=D().loc; const n=Math.max(1,Math.min(30,parseInt(f.courts)||0)); if(!f.name.trim()) return toast("Name the location.");
+    const id="loc-"+rid(); if(await put("locations",id,{id,name:f.name.trim(),courts:Array.from({length:n},(_,i)=>i+1),organiserIds:[],createdAt:Date.now()})){ S.ui.loc=id; delete D().loc; toast("Location added"); } },
+  async saveLoc(v){ const e=D().locEdit[v]; const l=clone(S.data.locations[v]); const cs=[...new Set(e.courts.split(/[,\s]+/).map(x=>parseInt(x)).filter(x=>x>0))].sort((a,b)=>a-b);
+    if(!cs.length) return toast("Add at least one court number."); l.name=e.name.trim()||l.name; l.courts=cs; if(await put("locations",v,l)) toast("Location saved"); },
+  setLoc(v){ S.ui.loc=v; S.ui.view=null; },
+  newGame(){ const loc=curLoc(); D().game={id:null,locId:loc.id,name:"",date:addDays(today(),7),start:"",end:"",changeover:DEFAULT_CHANGEOVER,courts:(loc.courts||[]).slice(0,Math.min(3,(loc.courts||[]).length)),team:"random",format:"mixed",pTeam:"high",pLevel:"high",pVariety:"medium",singles:true,leagueId:"",picks:[],removed:[],rounds:[]}; S.ui.view={type:"gameEdit",id:null}; },
+  editGame(v){ D().game=curGame(v); S.ui.view={type:"gameEdit",id:v}; },
+  async saveGame(){ const g=clone(D().game); if(!g.name.trim()) return toast("Give the game a name.");
+    const st=normTime(g.start), en=normTime(g.end);
+    if(!st) return toast("Enter the start time as 00:00, for example 19:00."); if(!en) return toast("Enter the end time as 00:00, for example 21:00.");
+    if(minutesBetween(st,en)<=0) return toast("The end time needs to be after the start time."); g.start=st; g.end=en; if(!g.courts.length) return toast("Pick at least one court.");
+    if(sessionPlan(g).rounds<1) return toast("The booking needs to be at least a few minutes long.");
+    const isNew=!g.id; if(isNew){ g.id="g-"+rid(); g.createdAt=Date.now(); g.organiserId=meId(); }
+    g.changeover=changeoverOf(g); if(!(g.rounds||[]).length){ delete g.matchMin; delete g.changeMin; } g.name=g.name.trim();
+    if(await put("games",g.id,g)){ S.ui.view={type:"game",id:g.id}; toast(isNew?"Game created":"Game saved"); } },
+  async deleteGame(v){ if(S.ui.confirm!=="del-"+v){ S.ui.confirm="del-"+v; return; } S.ui.confirm=null; await remove("games",v); S.ui.view=null; toast("Game deleted"); },
+  async join(v){ const s=signup(meId()); if(!s.games.includes(v)) s.games.push(v); if(s.declined) delete s.declined[v]; const g=S.data.games[v];
+    if(g&&(g.removed||[]).includes(meId())){ if(!isOrganiser(g.locId)) return toast("The organiser took you off this game. Ask them to add you back.");
+      const gg=curGame(v); gg.removed=gg.removed.filter(x=>x!==meId()); await put("games",v,gg); }
+    if(await put("signups",meId(),s)) toast("You're in"); },
+  async leave(v){ const s=signup(meId()); s.games=s.games.filter(x=>x!==v); const g0=S.data.games[v];
+    if(g0&&(g0.picks||[]).includes(meId())) s.declined={...(s.declined||{}),[v]:Date.now()};
+    await put("signups",meId(),s);
+    const g=S.data.games[v]; if(g&&(g.picks||[]).includes(meId())){ if(isOrganiser(g.locId)){ const gg=curGame(v); gg.picks=gg.picks.filter(x=>x!==meId()); await put("games",v,gg); } }
+    toast("You've left the game"); },
+  async invite(v,el){ const g=curGame(el.dataset.g); g.picks=[...new Set([...(g.picks||[]),v])]; g.invites={...(g.invites||{}),[v]:Date.now()}; g.removed=(g.removed||[]).filter(x=>x!==v);
+    if(await put("games",g.id,g)) toast(`${pname(v)} invited`); },
+  async pickRemove(v,el){ const g=curGame(el.dataset.g); g.picks=(g.picks||[]).filter(x=>x!==v); g.removed=[...new Set([...(g.removed||[]),v])]; await put("games",g.id,g); },
+  async genRound(v){ const g=curGame(v); const c=ctx(); if(!(g.rounds||[]).length) freezePlan(g); const rd=planRound(g,eligibleRoster(g),c.R); rd.drawnAt=Date.now(); if(!rd.courts.length) return toast("Not enough players to fill a court.");
+    g.rounds=[...(g.rounds||[]),rd]; await put("games",v,g); },
+  async planAll(v){ const g=curGame(v); const c=ctx(); const keep=(g.rounds||[]).filter(r=>r.done); if(!keep.length) freezePlan(g); g.rounds=keep; const n=sessionPlan(g).rounds; const rs=keep.slice();
+    for(let i=rs.length;i<n;i++) rs.push(planRound(g,eligibleRoster(g),c.R,rs)); g.rounds=rs; await put("games",v,g); toast(`${n-keep.length} rounds planned`); },
+  async clearRounds(v){ if(S.ui.confirm!=="clr-"+v){ S.ui.confirm="clr-"+v; return; } S.ui.confirm=null; const g=curGame(v); g.rounds=[]; await put("games",v,g); },
+  async finishRound(v,el){ const g=curGame(el.dataset.g); const ri=+v; const rd=g.rounds[ri];
+    for(let ci=0;ci<rd.courts.length;ci++){ const k=`${g.id}:${ri}:${ci}`; const s=S.ui.scores[k]||{}; const cc=rd.courts[ci];
+      const sa=s.sa ?? cc.sa, sb=s.sb ?? cc.sb; if(sa===""||sb===""||sa==null||sb==null||isNaN(+sa)||isNaN(+sb)||(+sa)+(+sb)<=0) return toast(`Enter both scores for court ${cc.court}.`);
+      cc.sa=+sa; cc.sb=+sb; }
+    rd.done=true; rd.startedAt=null; rd.pausedLeft=null;
+    if(await put("games",g.id,g)){ rd.courts.forEach((_,ci)=>delete S.ui.scores[`${g.id}:${ri}:${ci}`]); toast(`Round ${ri+1} saved · levels updated`); } },
+  toggleSound(){ const wasReady=audioReady(); unlockAudio();
+    SOUND.on = (SOUND.on && wasReady) ? false : true;   // "Tap to allow" → on; on → off; off → on
+    try{ localStorage.setItem("courtside-sound", SOUND.on?"on":"off"); }catch(e){}
+    if(SOUND.on) setTimeout(()=>{ if(audioReady()) tone(AC.currentTime+0.05,880,0.15,0.2); schedule(); },120); },
+  editRound(v,el){ S.ui.editRound=`${el.dataset.g}:${v}`; },
+  cancelEdit(v,el){ const g=S.data.games[el.dataset.g]; (g?.rounds?.[+v]?.courts||[]).forEach((_,ci)=>delete S.ui.scores[`${el.dataset.g}:${v}:${ci}`]); S.ui.editRound=null; },
+  async saveCorrection(v,el){ const g=curGame(el.dataset.g); const ri=+v; const rd=g.rounds[ri]; let changed=0;
+    for(let ci=0;ci<rd.courts.length;ci++){ const k=`${g.id}:${ri}:${ci}`; const s=S.ui.scores[k]||{}; const cc=rd.courts[ci];
+      const sa=s.sa ?? cc.sa, sb=s.sb ?? cc.sb; if(sa===""||sb===""||sa==null||sb==null||isNaN(+sa)||isNaN(+sb)||(+sa)+(+sb)<=0) return toast(`Enter both scores for court ${cc.court}.`);
+      if(+sa!==+cc.sa||+sb!==+cc.sb){ if(!cc.prev) cc.prev={sa:cc.sa,sb:cc.sb}; cc.sa=+sa; cc.sb=+sb; changed++; if(cc.prev.sa===cc.sa&&cc.prev.sb===cc.sb) delete cc.prev; } }
+    if(!changed){ A.cancelEdit(v,el); return toast("No scores changed."); }
+    rd.editedAt=Date.now(); rd.editedBy=meId();
+    if(await put("games",g.id,g)){ rd.courts.forEach((_,ci)=>delete S.ui.scores[`${g.id}:${ri}:${ci}`]); S.ui.editRound=null; toast(`Round ${ri+1} corrected · ${changed} court${changed>1?"s":""} changed, levels updated`); } },
+  async redrawNext(v,el){ const g=curGame(el.dataset.g); const ri=+v; if(g.rounds.slice(ri+1).some(r=>r.done)) return toast("A later round already has scores.");
+    const c=ctx(); const keep=g.rounds.slice(0,ri+1); const rd=planRound(g,eligibleRoster(g),c.R,keep); rd.drawnAt=Date.now(); g.rounds=[...keep,rd];
+    if(await put("games",g.id,g)) toast(`Round ${ri+2} re-drawn from the corrected scores`); },
+  async timerStart(v,el){ const g=curGame(el.dataset.g); const rd=g.rounds[+v]; const total=sessionPlan(g).match*60; const left=rd.pausedLeft ?? total; rd.startedAt=Date.now()-(total-left)*1000; rd.pausedLeft=null; await put("games",g.id,g); },
+  async timerPause(v,el){ const g=curGame(el.dataset.g); const rd=g.rounds[+v]; rd.pausedLeft=Math.max(0,Math.round((rd.startedAt+sessionPlan(g).match*60000-Date.now())/1000)); rd.startedAt=null; await put("games",g.id,g); },
+  async timerReset(v,el){ const g=curGame(el.dataset.g); const rd=g.rounds[+v]; rd.startedAt=null; rd.pausedLeft=null; await put("games",g.id,g); },
+  newLeague(){ const loc=curLoc(); D().league={id:null,locId:loc.id,name:"",minStart:0,minWeighted:0,minIndex:0,minGames:0,from:today(),to:addDays(today(),90),winPts:3,drawPts:1,lossPts:0,rules:"",picks:[],removed:[]}; S.ui.view={type:"leagueEdit",id:null}; },
+  editLeague(v){ D().league=clone(S.data.leagues[v]); S.ui.view={type:"leagueEdit",id:v}; },
+  async saveLeague(){ const l=clone(D().league); if(!l.name.trim()) return toast("Name the league."); if(l.from&&l.to&&l.from>l.to) return toast("The start date is after the end date.");
+    ["minStart","minWeighted","minIndex","minGames","winPts","drawPts","lossPts"].forEach(k=>l[k]=+l[k]||0);
+    const isNew=!l.id; if(isNew){ l.id="lg-"+rid(); l.createdAt=Date.now(); }
+    if(await put("leagues",l.id,l)){ S.ui.view={type:"league",id:l.id}; toast(isNew?"League created":"League saved"); } },
+  async deleteLeague(v){ if(S.ui.confirm!=="dell-"+v){ S.ui.confirm="dell-"+v; return; } S.ui.confirm=null; await remove("leagues",v); S.ui.view=null; },
+  async joinLeague(v){ const s=signup(meId()); if(!s.leagues.includes(v)) s.leagues.push(v); if(await put("signups",meId(),s)) toast("You've joined the league"); },
+  async leaveLeague(v){ const s=signup(meId()); s.leagues=s.leagues.filter(x=>x!==v); await put("signups",meId(),s); },
+  async leagueAdd(v,el){ const l=clone(S.data.leagues[el.dataset.g]); l.picks=[...new Set([...(l.picks||[]),v])]; l.removed=(l.removed||[]).filter(x=>x!==v); await put("leagues",l.id,l); },
+  async leagueRemove(v,el){ const l=clone(S.data.leagues[el.dataset.g]); l.picks=(l.picks||[]).filter(x=>x!==v); l.removed=[...new Set([...(l.removed||[]),v])]; await put("leagues",l.id,l); },
+  adminTab(v){ S.ui.adminTab=v; },
+  setOnboard(v){ D().prof.path=v; if(v==="organiser" && D().prof.reqLoc==="") D().prof.reqLoc=locs()[0]?.id||"__new"; },
+  openApply(){ delete D().apply; S.ui.modal={type:"apply"}; },
+  async submitApply(){ const f=D().apply; const err=applyCheck(f); if(err) return toast(err);
+    if(await put("organiser_requests",meId(),applyRecord(f))){ S.ui.modal=null; delete D().apply; toast("Application sent to the admin"); } },
+  async withdrawApply(){ await remove("organiser_requests",meId()); },
+  async approveApp(v){ const r=clone(S.data.organiser_requests[v]); if(!r) return; const p=S.data.players[v]; let locId=r.locId;
+    if(r.newLocation){ locId="loc-"+rid(); const n=Math.max(1,parseInt(r.newLocation.courts)||1);
+      if(!(await put("locations",locId,{id:locId,name:r.newLocation.name,courts:Array.from({length:n},(_,i)=>i+1),organiserIds:[v],createdAt:Date.now()}))) return; }
+    else { const l=clone(S.data.locations[locId]); if(!l) return toast("That club no longer exists."); l.organiserIds=[...new Set([...(l.organiserIds||[]),v])]; if(!(await put("locations",locId,l))) return; }
+    if(p && !(p.locations||[]).includes(locId)){ const pp=clone(p); pp.locations=[...(pp.locations||[]),locId]; await put("players",v,pp); }
+    r.status="approved"; r.decidedAt=Date.now(); r.decidedBy=meId(); r.locId=locId;
+    if(await put("organiser_requests",v,r)) toast(`${pname(v)} is now an organiser${r.newLocation?` at ${r.newLocation.name}`:""}`); },
+  async declineApp(v){ if(S.ui.confirm!=="dec-"+v){ S.ui.confirm="dec-"+v; return; } S.ui.confirm=null; const r=clone(S.data.organiser_requests[v]); if(!r) return;
+    r.status="declined"; r.decidedAt=Date.now(); r.decidedBy=meId(); if(await put("organiser_requests",v,r)) toast("Application declined"); },
+  async toggleOrg(v,el){ const l=clone(S.data.locations[el.dataset.g]); const on=(l.organiserIds||[]).includes(v); l.organiserIds=on? l.organiserIds.filter(x=>x!==v) : [...(l.organiserIds||[]),v]; if(await put("locations",l.id,l)) toast(on?"Organiser removed":`${pname(v)} is now an organiser`); },
+  async toggleLive(){ const st=settings(); st.membershipLive=!st.membershipLive; if(await put("settings","app",st)) toast(st.membershipLive?"Live membership is on":"Live membership is off"); },
+  async savePricing(){ const st=settings(); st.price=Math.max(0,+D().set.price||0); st.trialDays=Math.max(0,parseInt(D().set.trialDays)||0); if(await put("settings","app",st)) toast("Pricing saved"); },
+  async addDisc(){ const f=D().disc; const code=f.code.trim().toUpperCase().replace(/\s+/g,""); const pct=+f.pct; if(!code) return toast("Add a code."); if(!(pct>0&&pct<=100)) return toast("Use a discount between 1 and 100%.");
+    const st=settings(); st.discounts=[...(st.discounts||[]).filter(x=>x.code!==code),{code,pct,expires:f.expires||""}]; if(await put("settings","app",st)){ D().disc={code:"",pct:"10",expires:""}; toast("Code added"); } },
+  async removeDisc(v){ const st=settings(); st.discounts=(st.discounts||[]).filter((_,i)=>i!==+v); await put("settings","app",st); },
+  async recordPay(v){ const st=settings(); const code=D().pay?.[v]||""; const disc=(st.discounts||[]).find(x=>x.code===code); const amount=st.price*(1-(disc?.pct||0)/100);
+    const m=clone(S.data.memberships[v]||{history:[]}); const start = (m.status==="active"&&m.until&&m.until>=today())? m.until : today();
+    m.status="active"; m.paidOn=today(); m.until=addDays(start,365); m.history=[{date:today(),amount:Math.round(amount*100)/100,code},...(m.history||[])].slice(0,20);
+    if(await put("memberships",v,m)) toast(`${money(amount)} recorded for ${pname(v)}`); },
+  async startTrial(v){ const st=settings(); const m=clone(S.data.memberships[v]||{history:[]}); m.status="trial"; m.until=addDays(today(),st.trialDays||30); if(await put("memberships",v,m)) toast(`Trial started, ends ${fmtDate(m.until)}`); },
+  async setMem(v,el){ const m=clone(S.data.memberships[v]||{history:[]}); m.status=el.dataset.g; m.until= el.dataset.g==="comp"? addDays(today(),365) : m.until; if(el.dataset.g==="none") m.until=""; await put("memberships",v,m); },
+  bgClose(v,el,ev){ if(ev.target===el) A.closeModal(); }
+};
+
+document.addEventListener("click",async ev=>{
+  if(!ev.target.closest('[data-act="toggleSound"]')) unlockAudio();
+  const el=ev.target.closest("[data-act]"); if(!el||el.disabled) return;
+  const fn=A[el.dataset.act]; if(!fn) return;
+  if(el.dataset.act!=="bgClose") ev.stopPropagation();
+  if(el.tagName==="BUTTON"&&el.closest("form")) ev.preventDefault();
+  if(!/^(deleteGame|clearRounds|deleteLeague|declineApp)$/.test(el.dataset.act)) S.ui.confirm=null;
+  await fn(el.dataset.v,el,ev); schedule();
+});
+document.addEventListener("input",ev=>{
+  const el=ev.target;
+  if(el.dataset.bind){ if(el.type==="radio"){ if(el.checked) setPath(el.dataset.bind,el.value); } else setPath(el.dataset.bind,el.value); }
+  if(el.dataset.bindBool!=null) setPath(el.dataset.bindBool,el.checked);
+  if(el.dataset.bindArr){ const cur=(getPath(el.dataset.bindArr)||[]).slice(); const v=el.dataset.num!=null?+el.value:el.value; const i=cur.indexOf(v);
+    if(el.checked&&i<0) cur.push(v); if(!el.checked&&i>=0) cur.splice(i,1); setPath(el.dataset.bindArr,el.dataset.num!=null?cur.sort((a,b)=>a-b):cur); }
+  if(el.dataset.score){ const k=el.dataset.score; S.ui.scores[k]={...(S.ui.scores[k]||{}),[el.dataset.side]:el.value}; }
+  if(el.dataset.live!=null) schedule();
+});
+document.addEventListener("change",ev=>{
+  const el=ev.target;
+  if(el.dataset.actChange&&A[el.dataset.actChange]){ A[el.dataset.actChange](el.value,el); schedule(); return; }
+  if(el.dataset.time!=null){ const t=normTime(el.value); if(t){ el.value=t; setPath(el.dataset.bind,t); } }
+  if(el.dataset.rerender!=null||el.type==="radio"||el.type==="checkbox") schedule();
+});
+document.addEventListener("keydown",ev=>{ if(ev.key==="Escape"&&S.ui.modal){ A.closeModal(); schedule(); } });
+
+/* ---------- boot ---------- */
+async function boot(){
+  render();
+  if(!window.supabase || !CFG.supabaseUrl || /YOUR-/.test(CFG.supabaseUrl+CFG.supabaseAnonKey)){ S.mode="setup"; schedule(); return; }
+  sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}});
+  S.dbAvailable=true;
+  const {data:{session}} = await sb.auth.getSession();
+  applySession(session);
+  sb.auth.onAuthStateChange((ev,session)=>{
+    const had=S.me.id; applySession(session);
+    if(session && !had && S.mode!=="sample") startLive();
+    if(!session){ if(liveChannel){ sb.removeChannel(liveChannel); liveChannel=null; } signedIn=false; if(S.mode!=="sample"){ S.data=emptyData(); S.mode="signedout"; } schedule(); }
+  });
+  if(session) startLive(); else { S.mode="signedout"; schedule(); }
+}
+window.__padel = {planRound, computeRatings, capacity, percentileIndex, S, loadSample, allMatches, eligibleRoster, leagueChecks, ctx};
+boot();
+})();
+</script>
+</body>
+</html>

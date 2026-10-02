@@ -128,6 +128,8 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
   background-size:1.5px 100%,32% 1.5px,32% 1.5px;background-position:50% 0,14% 50%,86% 50%;background-repeat:no-repeat}
 .court-body .side{padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;font-weight:600;font-size:.9rem;min-width:0;position:relative}
 .court-body .side span.nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.court-body select.slot{background:rgba(255,255,255,.16);color:inherit;border:1px solid rgba(255,255,255,.35);border-radius:6px;font-weight:600;padding:2px 4px;width:100%;margin:1px 0}
+.court-body select.slot option{color:#0F1B2D}
 .court-body .side.b{text-align:right}
 .court-body .avg{font-weight:400;font-size:.74rem;opacity:.85}
 .court-body .net{background:repeating-linear-gradient(0deg,rgba(255,255,255,.85) 0 3px,transparent 3px 6px)}
@@ -174,6 +176,21 @@ tr.lead td{background:var(--ball-soft)}
 
 .modal-bg{position:fixed;inset:0;background:rgba(5,12,24,.5);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
 .modal{background:var(--surface);border-radius:14px;max-width:640px;width:100%;padding:22px;display:flex;flex-direction:column;gap:16px;border:1px solid var(--line)}
+.chat{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto}
+.msg{display:flex;gap:8px;align-items:flex-start}
+.msg.mine{flex-direction:row-reverse}
+.msg .bubble{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:6px 10px;max-width:80%;min-width:0}
+.msg.mine .bubble{background:var(--court-soft);border-color:transparent}
+.msg .meta{font-size:.75rem;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.msg .body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.92rem}
+.av{border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--court-soft);color:var(--court);font-weight:700;flex:none;vertical-align:middle}
+.scorepad{position:fixed;inset:0;z-index:70;background:var(--bg);display:grid;grid-template-rows:auto 1fr 1fr auto;padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(10px + env(safe-area-inset-bottom,0px));gap:10px}
+@media (orientation:landscape){.scorepad{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr auto}.scorepad .sp-top,.scorepad .sp-bottom{grid-column:1/-1}}
+.sp-top,.sp-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sp-side{border:0;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;color:#fff}
+.sp-side.a{background:var(--court-fill)} .sp-side.b{background:var(--court)}
+.sp-num{font-family:var(--f-display);font-size:clamp(4rem,22vw,9rem);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.sp-names{font-weight:700;font-size:1.05rem;text-align:center;padding:0 10px} .sp-hint{font-size:.78rem;opacity:.8}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:60;font-weight:600;max-width:calc(100% - 32px)}
 .empty{padding:26px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
@@ -196,7 +213,7 @@ details summary{cursor:pointer;font-weight:600}
 const CFG = window.COURTSIDE_CONFIG || {};
 const ADMIN_EMAIL = "mink.sumana@gmail.com";
 const ADMIN_EMAILS = (CFG.adminEmails && CFG.adminEmails.length ? CFG.adminEmails : [ADMIN_EMAIL]).map(e=>String(e).toLowerCase());
-const COLS = ["locations","players","games","leagues","memberships","signups","settings","levels","organiser_requests"];
+const COLS = ["locations","players","games","leagues","memberships","signups","settings","levels","organiser_requests","player_blocks","notices"];
 const LEVELS = ["","New to padel","Beginner","Improving beginner","Lower intermediate","Intermediate","Upper intermediate","Advanced","Competitive","Elite amateur","Pro level"];
 const PRI = {high:10, medium:3, off:0};
 const SCALE = 4;             // a 4-level gap = ~91% expected win
@@ -207,7 +224,7 @@ const S = {
   mode:"loading", dbAvailable:false, loaded:{},
   me:{id:null,name:"",email:null,isOwner:false},
   data:emptyData(),
-  emails:{},
+  emails:{}, chat:{}, startedAt:Date.now(),
   ui:{tab:"home", loc:null, view:null, modal:null, draft:{}, scores:{}, adminTab:"members", confirm:null, toast:null}
 };
 function emptyData(){ const o={}; COLS.forEach(c=>o[c]={}); return o; }
@@ -286,27 +303,35 @@ function computeRatings(matches){
   // match count restarts, and only matches after the change adjust the level.
   const applyReset = x => { const rs=x.reset; if(!rs||x.resetDone) return; x.resetDone=true;
     x.before={n:x.n,r:x.r,L0:x.L0}; x.L0=rs.level; x.r=rs.level; x.res=0; x.mar=0; x.n=0; x.w=0; x.l=0; x.d=0; x.upsets=0; x.badLosses=0; x.expSum=0; x.oppSum=0; x.hist=[]; };
+  // Organiser nudges move the current level by one step at a time and keep all results so far.
+  const nudgesOf = id => (S.data.levels[id]?.nudges||[]).filter(n=>n&&n.at).slice().sort((a,b)=>a.at-b.at);
+  const catchUp = (x,ts) => { for(;;){
+      const nz=x.nudges[x.ni], tr=(x.reset&&!x.resetDone)?x.reset.at:Infinity, tn=nz?nz.at:Infinity;
+      if((tr===Infinity && tn===Infinity) || Math.min(tr,tn)>ts) break;
+      if(tr<=tn){ applyReset(x); x.adj=0; } else { const b=x.r; x.r=clamp(x.r+(+nz.d||0),1,10); x.adj+=x.r-b; x.ni++; } } };
   const get = id => { if(!R[id]){ const rs=resetOf(id); const L0 = clamp(+(rs ? (S.data.players[id]?.level ?? rs.level) : startLevel(id)),1,10);
-      R[id]={id,L0,r:L0,n:0,res:0,mar:0,w:0,l:0,d:0,upsets:0,badLosses:0,expSum:0,oppSum:0,hist:[],reset:rs}; } return R[id]; };
+      R[id]={id,L0,r:L0,n:0,res:0,mar:0,adj:0,w:0,l:0,d:0,upsets:0,badLosses:0,expSum:0,oppSum:0,hist:[],reset:rs,nudges:nudgesOf(id),ni:0,clubN:{}}; } return R[id]; };
   Object.keys(S.data.players).forEach(get);
   for(const m of matches){
     const A=m.a.map(get), B=m.b.map(get);
-    [...A,...B].forEach(x=>{ if(x.reset && !x.resetDone && (m.ts||0) >= x.reset.at) applyReset(x); });
+    [...A,...B].forEach(x=>catchUp(x, m.ts||0));
     const ra=avg(A.map(x=>x.r)), rb=avg(B.map(x=>x.r));
     const E = 1/(1+Math.pow(10,(rb-ra)/SCALE));
     const win = m.sa>m.sb?1:m.sa<m.sb?0:0.5, share = m.sa/(m.sa+m.sb);
     const upd=(team,Et,wt,sh,opp,mine,theirs,partners)=>team.forEach(x=>{
-      const K=kFor(x.n), dr=K*0.5*(wt-Et), dm=K*0.5*(sh-Et), before=x.r;
+      // First 5 matches at a club that's new to an established player use a wider step, so they settle there quickly.
+      const cn=x.clubN[m.locId]||0, boost = cn<5 && x.n>cn; x.clubN[m.locId]=cn+1;
+      const K=boost?Math.max(kFor(x.n),kFor(cn)):kFor(x.n), dr=K*0.5*(wt-Et), dm=K*0.5*(sh-Et), before=x.r;
       x.r=clamp(x.r+dr+dm,1,10);
       const applied=x.r-before, tot=dr+dm, f=tot? applied/tot : 0;
       x.res+=dr*f; x.mar+=dm*f; x.n++; x.expSum+=Et; x.oppSum+=opp;
       if(wt===1){x.w++; if(Et<0.4) x.upsets++;} else if(wt===0){x.l++; if(Et>0.6) x.badLosses++;} else x.d++;
-      x.hist.push({date:m.date,gameId:m.gameId,round:m.round,delta:applied,exp:Et,win:wt,score:`${mine}–${theirs}`,opp,r:x.r,partners:partners.filter(p=>p!==x.id),opps:[]});
+      x.hist.push({date:m.date,gameId:m.gameId,round:m.round,delta:applied,exp:Et,win:wt,score:`${mine}–${theirs}`,opp,r:x.r,boost,partners:partners.filter(p=>p!==x.id),opps:[]});
     });
     upd(A,E,win,share,rb,m.sa,m.sb,m.a); upd(B,1-E,1-win,1-share,ra,m.sb,m.sa,m.b);
     A.forEach(x=>x.hist[x.hist.length-1].opps=m.b); B.forEach(x=>x.hist[x.hist.length-1].opps=m.a);
   }
-  Object.values(R).forEach(x=>{ applyReset(x); x.conf = x.n/(x.n+8); x.k=kFor(x.n); });
+  Object.values(R).forEach(x=>{ catchUp(x, Infinity); applyReset(x); x.conf = x.n/(x.n+8); x.k=kFor(x.n); });
   return R;
 }
 function percentileIndex(ids,R){
@@ -333,6 +358,19 @@ function histOf(rounds){
   return {partner,opp,sit,lastSit};
 }
 const rt = (R,id) => R[id]?.r ?? 5;
+// Game formats. Games saved before 2 Oct 2026 used "mixed" (rotation) and "americano" (up/down ladder).
+const FORMATS = {
+  americano:{label:"Americano", byRound:false, points:true,  desc:"Everyone partners everyone. Rounds are planned in advance; most points wins."},
+  mexicano: {label:"Mexicano",  byRound:true,  points:true,  desc:"Round 1 is drawn by level, then each round pairs players by the points table: 1st & 4th v 2nd & 3rd on each court."},
+  kotc:     {label:"King/Queen of the Court", byRound:true, points:true, desc:"Winners move up a court and split up, losers move down. Drawn round by round."},
+  custom:   {label:"Custom",    byRound:false, points:false, desc:"You set every line-up (the app suggests one to start). Most matches won wins."}
+};
+function fmtOf(g){ if(g && g.fv===2 && FORMATS[g.format]) return g.format; return g?.format==="americano" ? "kotc" : "americano"; }
+const fmtLabel = g => FORMATS[fmtOf(g)].label;
+const byRound = g => FORMATS[fmtOf(g)].byRound;
+const pointsFmt = g => FORMATS[fmtOf(g)].points;
+// Pairs of players who asked not to play together (each player can name up to 2; private to them, organisers and admin)
+function blockPairs(){ const out=new Set(); Object.entries(S.data.player_blocks||{}).forEach(([pid,b])=>(b.blocked||[]).forEach(o=>out.add(pk(pid,o)))); return out; }
 // Sex is man/woman. Preference says whether a player is happy to be in a man+woman pair.
 // Older profiles stored "X" (mixed) with the sex in `cat`.
 // Starting level: entered by the player once at sign-up; after that only organisers and the admin change it (kept in `levels`).
@@ -345,30 +383,38 @@ function genderPen(ids,g){
   if(g.team==="mixed") return sa===sb?1:0;
   return (sa!==sb && !(prefMixed(a)&&prefMixed(b))) ? 1 : 0;
 }
-function bestSplit(four,g,w,h,R,split){
-  const opts=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]]; let best=null;
+function bestSplit(four,g,w,h,R,split,mode){
+  const opts = mode==="mex" ? [[[0,3],[1,2]],[[0,2],[1,3]],[[0,1],[2,3]]] : [[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]]; let best=null;
+  const BL=h.blocks||new Set();
   // Americano: anyone who partnered last round must now be on opposite sides
   const allowed = split ? opts.filter(o=>!o.some(t=>split.has(pk(four[t[0]],four[t[1]])))) : opts;
   for(const o of (allowed.length?allowed:opts)){
     const a=o[0].map(i=>four[i]), b=o[1].map(i=>four[i]);
     const ra=a.map(id=>rt(R,id)), rb=b.map(id=>rt(R,id));
-    // Partners should be close in level; the two pairs' averages matter less.
-    let s = w.level*(2*(Math.abs(ra[0]-ra[1])+Math.abs(rb[0]-rb[1])) + Math.abs(avg(ra)-avg(rb)));
-    s += w.variety*12*((h.partner[pk(a[0],a[1])]||0)+(h.partner[pk(b[0],b[1])]||0));
-    s += w.variety*1.5*a.reduce((t,x)=>t+b.reduce((u,y)=>u+(h.opp[pk(x,y)]||0),0),0);
+    let s;
+    if(mode==="mex") s = opts.indexOf(o)*25;   // Mexicano: 1st & 4th v 2nd & 3rd unless that breaks a rule below
+    else {
+      // Partners should be close in level; the two pairs' averages matter less.
+      s = w.level*(2*(Math.abs(ra[0]-ra[1])+Math.abs(rb[0]-rb[1])) + Math.abs(avg(ra)-avg(rb)));
+      s += w.variety*12*((h.partner[pk(a[0],a[1])]||0)+(h.partner[pk(b[0],b[1])]||0));
+      s += w.variety*1.5*a.reduce((t,x)=>t+b.reduce((u,y)=>u+(h.opp[pk(x,y)]||0),0),0);
+    }
     s += w.team*4*(genderPen(a,g)+genderPen(b,g));
+    // blocked players: never partners if avoidable, and kept off the same court where possible
+    s += 500*((BL.has(pk(a[0],a[1]))?1:0)+(BL.has(pk(b[0],b[1]))?1:0));
+    s += 60*a.reduce((t,x)=>t+b.reduce((u,y)=>u+(BL.has(pk(x,y))?1:0),0),0);
     if(!best||s<best.s) best={a,b,s};
   }
   return best;
 }
-function buildCourts(sorted,full,singles,courts,g,w,h,R,split){
+function buildCourts(sorted,full,singles,courts,g,w,h,R,split,mode){
   const out=[]; let score=0, i=0;
-  for(let k=0;k<full;k++){ const four=sorted.slice(i,i+4); const sp=bestSplit(four,g,w,h,R,split); i+=4;
+  for(let k=0;k<full;k++){ const four=sorted.slice(i,i+4); const sp=bestSplit(four,g,w,h,R,split,mode); i+=4;
     const lv=four.map(id=>rt(R,id));
     out.push({court:courts[k],a:sp.a,b:sp.b,sa:null,sb:null}); score+=sp.s + w.level*0.6*(Math.max(...lv)-Math.min(...lv)); }
   if(singles){ const t=sorted.slice(i,i+2);
     out.push({court:courts[full],a:[t[0]],b:[t[1]],sa:null,sb:null,singles:true});
-    score += w.level*Math.abs(rt(R,t[0])-rt(R,t[1]))*2 + w.variety*(h.opp[pk(t[0],t[1])]||0); }
+    score += w.level*Math.abs(rt(R,t[0])-rt(R,t[1]))*2 + w.variety*(h.opp[pk(t[0],t[1])]||0) + ((h.blocks||new Set()).has(pk(t[0],t[1]))?60:0); }
   return {courts:out,score};
 }
 function capacity(n,courtsN,allowSingles){
@@ -378,7 +424,8 @@ function capacity(n,courtsN,allowSingles){
 }
 function planRound(g, roster, R, prior, rnd=Math.random){
   const rounds = prior || g.rounds || []; const courts=courtList(g);
-  const h=histOf(rounds), w=weights(g), cap=capacity(roster.length,courts.length,g.singles);
+  const h=histOf(rounds), w=weights(g), cap=capacity(roster.length,courts.length,g.singles); h.blocks=blockPairs();
+  const F=fmtOf(g);
   // sit-outs: those who have sat the least sit next; never twice in a row if avoidable
   const order=shuffle(roster.slice(),rnd).sort((a,b)=>{
     const d=(h.sit[b]||0)-(h.sit[a]||0); if(d) return d;
@@ -386,7 +433,12 @@ function planRound(g, roster, R, prior, rnd=Math.random){
   });
   const playing=order.slice(0,cap.playing), sitOut=order.slice(cap.playing);
   let best;
-  if(g.format==="americano"){
+  if(F==="mexicano"){
+    // Mexicano: rank by points won so far in this game (level for round 1), fill courts top-down, pair 1st & 4th v 2nd & 3rd
+    const pts={}; rounds.filter(r=>r.done).forEach(r=>r.courts.forEach(c=>{ c.a.forEach(id=>pts[id]=(pts[id]||0)+(+c.sa||0)); c.b.forEach(id=>pts[id]=(pts[id]||0)+(+c.sb||0)); }));
+    const sorted=playing.slice().sort((a,b)=>((pts[b]||0)-(pts[a]||0)) || (rt(R,b)-rt(R,a)));
+    best=buildCourts(sorted,cap.full,cap.singles,courts,g,w,h,R,null,"mex");
+  } else if(F==="kotc"){
     const last=rounds[rounds.length-1];
     let sorted;
     if(last && last.done){
@@ -521,7 +573,7 @@ async function loadTable(col){
   S.data[col]=out; S.loaded[col]=true;
 }
 // Optional tables (added after launch) load if present, so an older database still works.
-const OPTIONAL_COLS = new Set(["organiser_requests"]);
+const OPTIONAL_COLS = new Set(["organiser_requests","player_blocks","notices"]);
 async function loadAll(){ await Promise.all(COLS.map(c=>loadTable(c).catch(e=>{ if(OPTIONAL_COLS.has(c)){ S.data[c]={}; S.loaded[c]=true; } else throw e; }))); if(isAdmin()) await loadEmails(); schedule(); }
 async function loadEmails(){ const {data}=await sb.from("player_emails").select("id,email"); S.emails={}; (data||[]).forEach(r=>S.emails[r.id]=r.email); }
 let optChannel = null;
@@ -531,7 +583,8 @@ function subscribe(){
   let first=true;
   const onChange = col => p => {
     if(p.eventType==="DELETE"){ if(p.old?.id) delete S.data[col][p.old.id]; }
-    else if(p.new?.id){ S.data[col][p.new.id]={...(p.new.data||{}), id:p.new.id}; }
+    else if(p.new?.id){ S.data[col][p.new.id]={...(p.new.data||{}), id:p.new.id};
+      if(col==="notices" && p.eventType==="INSERT"){ const n=S.data.notices[p.new.id]; if(relevantNotice(n)) toast(noticeText(n)); } }
     schedule(); };
   liveChannel = sb.channel("courtside-live");
   COLS.filter(c=>!OPTIONAL_COLS.has(c)).forEach(col=>liveChannel.on("postgres_changes",{event:"*",schema:"public",table:col},onChange(col)));
@@ -550,7 +603,7 @@ document.addEventListener("visibilitychange",()=>{ if(document.hidden){ hiddenAt
 async function startLive(){
   S.mode="loading-live"; S.loaded={}; schedule();
   try{ await loadAll(); }catch(e){ S.mode="error"; S.error=e?.message||String(e); schedule(); return; }
-  S.mode="live"; schedule(); subscribe(); recordSignIn(); saveMyEmail();
+  S.mode="live"; openPendingGame(); schedule(); subscribe(); recordSignIn(); saveMyEmail();
 }
 async function saveMyEmail(){ if(!S.me.id||!S.me.email) return; await sb.from("player_emails").upsert({id:S.me.id, email:S.me.email}); }
 function applySession(session){
@@ -589,16 +642,16 @@ function loadSample(){
   S.data.leagues["lg2"]={id:"lg2",locId,name:"Advanced League",minStart:6,minWeighted:6.2,minIndex:6,minGames:3,from:"2026-09-01",to:"2026-12-31",winPts:3,lossPts:0,drawPts:1,rules:"For the top half of the club. Best of 16 points per match.",picks:[],removed:[],createdAt:2};
   const all=roster.map(r=>r[0]);
   const mk=(id,name,date,format,team,courts,players,leagueId)=>{
-    const g={id,locId,name,date,start:"19:00",end:"21:00",matchMin:16,changeMin:2,courts,team,format,pTeam:"high",pLevel:"high",pVariety:"medium",singles:true,leagueId:leagueId||"",picks:players,removed:[],rounds:[],organiserId:"p3",createdAt:1};
+    const g={id,locId,name,date,start:"19:00",end:"21:00",matchMin:16,changeMin:2,courts,team,format,fv:2,pTeam:"high",pLevel:"high",pVariety:"medium",singles:true,leagueId:leagueId||"",picks:players,removed:[],rounds:[],organiserId:"p3",createdAt:1};
     S.data.games[id]=g; return g; };
   const sim=(g,nRounds)=>{ for(let i=0;i<nRounds;i++){ const R=computeRatings(allMatches());
       const rd=planRound(g,eligibleRoster(g),R,g.rounds,rnd);
       rd.courts.forEach(c=>{ const ra=avg(c.a.map(id=>rt(R,id))), rb=avg(c.b.map(id=>rt(R,id)));
         const E=1/(1+Math.pow(10,(rb-ra)/SCALE)); let sa=Math.round(16*clamp(E+(rnd()-0.5)*0.5,0.12,0.88)); if(sa===8) sa=rnd()<0.5?9:7; c.sa=sa; c.sb=16-sa; });
       rd.done=true; g.rounds.push(rd); } };
-  sim(mk("g1","Tuesday Social","2026-09-08","mixed","random",[1,2,3,4],all),6);
-  sim(mk("g2","Ladder Night","2026-09-22","americano","mixed",[1,2,3,4],all.slice(0,14),"lg1"),6);
-  const g3=mk("g3","Tuesday Social","2026-10-06","mixed","random",[1,2,3],[], "lg1");
+  sim(mk("g1","Tuesday Social","2026-09-08","americano","random",[1,2,3,4],all),6);
+  sim(mk("g2","Ladder Night","2026-09-22","kotc","mixed",[1,2,3,4],all.slice(0,14),"lg1"),6);
+  const g3=mk("g3","Mexicano Night","2026-10-06","mexicano","random",[1,2,3],[], "lg1");
   g3.picks=["p1","p2","p4","p5","p6","p7","p9","p11","p12","p13","p15"];
   S.data.signups["me"]={games:["g3"],leagues:["lg1"]};
   S.data.signups["p8"]={games:["g3"],leagues:["lg1","lg2"]};
@@ -643,10 +696,75 @@ function gate(){
   if(S.mode==="error") return `<section class="panel" style="max-width:560px"><h1>Couldn't load the club</h1><p class="muted">${esc(S.error||"")}</p>
     <div class="row"><button class="btn primary" data-act="retryLive">Try again</button><button class="btn" data-act="signOut">Sign out</button></div></section>`;
   return `<section class="panel" style="max-width:520px"><p class="eyebrow">Courtside Padel</p><h1>Sign in to your club</h1>
-    <p class="muted">Use your Google account. New players create a free profile after signing in.</p>
+    <p class="muted">${S.pendingGame?"Sign in with Google to see the match you were sent and join it.":"Use your Google account. New players create a free profile after signing in."}</p>
     <div class="row"><button class="btn primary" data-act="signIn" style="background:var(--surface);color:var(--ink);border-color:var(--line)">${g} Sign in with Google</button>
     <button class="btn ghost" data-act="useSample">Look around with sample data</button></div></section>`;
 }
+/* drop-out alerts */
+function relevantNotice(n){
+  if(!n||n.type!=="dropout"||n.pid===meId()) return false; const g=S.data.games[n.gameId]; if(!g||g.date<today()) return false;
+  if(isOrganiser(g.locId)) return true;
+  return (myPlayer()?.locations||[]).includes(g.locId) && !gameRoster(g).includes(meId());
+}
+function noticeText(n){ const g=S.data.games[n.gameId]; return `${pname(n.pid)} ${n.declined?"declined":"dropped out of"} ${g?g.name:"a game"}${g?` (${fmtDate(g.date)}, ${g.start})`:""}. A space is free.`; }
+function lastSeenNotices(){ try{ return +localStorage.getItem("courtside-notices-seen")||0; }catch(e){ return 0; } }
+const myNotices = () => Object.values(S.data.notices||{}).filter(relevantNotice).sort((a,b)=>b.at-a.at);
+/* share links */
+const siteUrl = () => location.origin+location.pathname;
+const gameLink = g => `${siteUrl()}#g-${g.id}`;
+function shareText(g){ const ros=gameRoster(g), spaces=Math.max(0,courtList(g).length*4-ros.length);
+  return `🎾 ${g.name} at ${S.data.locations[g.locId]?.name||"the club"}\n${fmtDate(g.date)}, ${g.start}–${g.end} · ${fmtLabel(g)}\n${spaces?`${spaces} space${spaces===1?"":"s"} left`:"Full – join the waiting list in the app"}\nJoin on Courtside Padel: ${gameLink(g)}`; }
+/* match chat */
+let chatChannel=null;
+async function openChat(gid){
+  if(S.chatFor===gid) return; S.chatFor=gid; S.chat[gid] ??= []; S.chatErr=null;
+  if(S.mode!=="live"||!sb) return;
+  if(chatChannel){ sb.removeChannel(chatChannel); chatChannel=null; }
+  const {data,error}=await sb.from("game_messages").select("id,game_id,author,body,created_at").eq("game_id",gid).order("created_at",{ascending:true}).limit(300);
+  if(error){ S.chatErr="Chat isn't switched on in the database yet."; schedule(); return; }
+  S.chat[gid]=data||[]; schedule();
+  chatChannel=sb.channel("chat-"+gid).on("postgres_changes",{event:"*",schema:"public",table:"game_messages",filter:`game_id=eq.${gid}`},p=>{
+    const list=S.chat[gid] ||= [];
+    if(p.eventType==="DELETE"){ S.chat[gid]=list.filter(m=>m.id!==p.old?.id); }
+    else if(p.new && !list.some(m=>m.id===p.new.id)) list.push(p.new);
+    schedule(); }).subscribe(()=>{});
+}
+function chatPanel(g){
+  if(S.chatFor!==g.id) setTimeout(()=>openChat(g.id),0);
+  const msgs=(S.chat[g.id]||[]).slice(-100); const me=meId(); const org=isOrganiser(g.locId);
+  return `<section class="panel"><div class="row between"><h2>Match chat</h2><span class="chip">${msgs.length}</span></div>
+    ${S.chatErr?`<p class="muted" style="font-size:.85rem">${esc(S.chatErr)}</p>`:""}
+    <div class="chat">${msgs.map(m=>`<div class="msg ${m.author===me?"mine":""}">${avatar(m.author,26)}<div class="bubble"><div class="meta"><b>${esc(pname(m.author))}</b> <span class="muted">${fmtDT(Date.parse(m.created_at))}</span>${m.author===me||org?`<button class="btn ghost small" data-act="delChat" data-g="${esc(g.id)}" data-v="${esc(m.id)}" aria-label="Delete message">✕</button>`:""}</div><div class="body">${esc(m.body)}</div></div></div>`).join("")||`<p class="muted" style="font-size:.88rem">No messages yet. Say hello, sort lifts, or ask who's bringing balls.</p>`}</div>
+    ${myPlayer()?`<div class="row" style="align-items:flex-end"><label class="f" style="flex:1">Message<textarea id="chat-${esc(g.id)}" data-bind="chatDraft.${esc(g.id)}" rows="2" maxlength="1000" style="min-height:44px">${esc(D().chatDraft?.[g.id]||"")}</textarea></label><button class="btn primary" data-act="sendChat" data-v="${esc(g.id)}">Send</button></div>`:""}
+  </section>`;
+}
+/* photos */
+function avatar(id,size=28){ const p=S.data.players[id]; const nm=(p?.name||"?").replace(/\(.*?\)/g,"").trim();
+  const ini=nm.split(/\s+/).map(w=>w[0]||"").slice(0,2).join("").toUpperCase()||"?";
+  return p?.photo ? `<img class="av" src="${esc(p.photo)}" alt="" width="${size}" height="${size}" style="width:${size}px;height:${size}px">`
+    : `<span class="av" style="width:${size}px;height:${size}px;font-size:${Math.max(10,Math.round(size*.38))}px" aria-hidden="true">${esc(ini)}</span>`; }
+function resizeImage(file,px=320){ return new Promise((res,rej)=>{ const img=new Image(); const url=URL.createObjectURL(file);
+  img.onload=()=>{ const s0=Math.min(img.width,img.height), c=document.createElement("canvas"); c.width=c.height=px;
+    c.getContext("2d").drawImage(img,(img.width-s0)/2,(img.height-s0)/2,s0,s0,0,0,px,px); URL.revokeObjectURL(url); c.toBlob(b=>b?res(b):rej(new Error("Couldn't read that image")),"image/jpeg",0.85); };
+  img.onerror=()=>rej(new Error("That file isn't an image we can read")); img.src=url; }); }
+/* badges */
+function playerStats(){
+  const st={}; Object.values(S.data.games).forEach(g=>{ const rounds=g.rounds||[], done=rounds.filter(r=>r.done); if(!done.length) return; const F=fmtOf(g);
+    const finished = done.length===rounds.length && (g.date<today() || done.length>=sessionPlan(g).rounds);
+    const who=new Set(); done.forEach(r=>r.courts.forEach(c=>[...c.a,...c.b].forEach(id=>who.add(id))));
+    who.forEach(id=>{ ((st[id] ||= {})[F] ||= {played:0,won:0}).played++; });
+    if(finished) gameWinners(g).forEach(w=>{ ((st[w.id] ||= {})[F] ||= {played:0,won:0}).won++; }); });
+  return st; }
+function foundingNumbers(){ // first 50 real members by join date
+  const real=Object.values(S.data.players).filter(p=>!p.test).sort((a,b)=>String(a.joinedAt||"9").localeCompare(String(b.joinedAt||"9")) || ((a.signIns||[]).slice(-1)[0]||9e15)-((b.signIns||[]).slice(-1)[0]||9e15) || a.id.localeCompare(b.id));
+  const out={}; real.slice(0,50).forEach((p,i)=>out[p.id]=i+1); return out; }
+function badges(pid){
+  const st=playerStats()[pid]||{}, fm=foundingNumbers()[pid]; const out=[];
+  if(fm) out.push(`<span class="chip ball" title="One of the first 50 members">🏅 Founding member #${fm}</span>`);
+  Object.keys(FORMATS).forEach(k=>{ const x=st[k]; if(!x) return;
+    out.push(`<span class="chip ${x.won?"good":""}">${x.won?`🏆 ${x.won} ${FORMATS[k].label} win${x.won===1?"":"s"} · `:""}${x.played} played</span>`); });
+  return out.length?`<div class="row" style="gap:6px">${out.join("")}</div>`:""; }
+const matchiBtn = locId => { const u=S.data.locations[locId]?.matchiUrl; return u?`<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">Book courts on Matchi ↗</a>`:""; };
 function topbar(c){
   const loc=c?.loc; const mine=(myPlayer()?.locations)||[];
   const choices=locs().filter(l=>isAdmin()||mine.includes(l.id));
@@ -656,6 +774,7 @@ function topbar(c){
     ${choices.length>1?`<select id="locsel" data-act-change="setLoc" aria-label="Club location" style="width:auto">${choices.map(l=>`<option value="${esc(l.id)}" ${loc&&l.id===loc.id?"selected":""}>${esc(l.name)}</option>`).join("")}</select>`: loc?`<span class="chip court">${esc(loc.name)}</span>`:""}
     ${S.mode==="sample"?`<span class="chip ball">Sample data</span>`:""}
     ${roles.map(r=>`<span class="chip">${r}</span>`).join("")}
+    ${myPlayer()&&(S.mode==="live"||S.mode==="sample")?(()=>{ const ns=myNotices(), fresh=ns.filter(n=>n.at>lastSeenNotices()).length; return `<button class="btn small" data-act="openNotices" aria-label="Alerts${fresh?`, ${fresh} new`:""}">🔔${fresh?` <span class="chip warn">${fresh}</span>`:""}</button>`; })():""}
     ${S.mode==="live"&&S.me.id?`<span class="muted" style="font-size:.82rem">${esc(S.me.email||"")}</span><button class="btn small" data-act="signOut">Sign out</button>`:""}
   </div></header>`;
 }
@@ -719,11 +838,21 @@ function applyRecord(f){
   if(f.reqLoc==="__new") r.newLocation={name:String(f.newName).trim().slice(0,60), courts:Math.max(1,Math.min(30,parseInt(f.newCourts)||1))}; else r.locId=f.reqLoc;
   return r;
 }
+function blockFields(){
+  const mine=S.data.player_blocks?.[meId()]?.blocked||[]; const q=(D().blockQ||"").trim().toLowerCase();
+  const myLocs=myPlayer()?.locations||[];
+  const pool=Object.values(S.data.players).filter(p=>p.id!==meId()&&!mine.includes(p.id)&&(p.locations||[]).some(l=>myLocs.includes(l)));
+  const hits=q?pool.filter(p=>p.name.toLowerCase().includes(q)).slice(0,6):[];
+  return `<div class="f" style="font-size:.85rem;font-weight:600">Players you'd rather not play with<span class="hint">Up to 2. The app won't make you partners and tries to keep you on different courts. Only you, organisers and the admin can see this list.</span>
+    <div class="row">${mine.map(id=>`<span class="chip">${esc(pname(id))} <button class="btn ghost small" data-act="unblock" data-v="${esc(id)}" aria-label="Remove ${esc(pname(id))}">✕</button></span>`).join("")||`<span class="muted" style="font-weight:400">Nobody</span>`}</div>
+    ${mine.length<2?`<input id="block-q" type="text" autocomplete="off" placeholder="Type a name…" data-bind="blockQ" data-live value="${esc(D().blockQ||"")}">
+      ${hits.length?`<div class="list">${hits.map(p=>`<div class="li"><span class="grow">${esc(p.name)}</span><button class="btn small" data-act="block" data-v="${esc(p.id)}">Add</button></div>`).join("")}</div>`:q?`<span class="muted" style="font-weight:400">No players at your clubs match “${esc(q)}”.</span>`:""}`:""}</div>`;
+}
 function profileForm(first, tid){
   tid = tid || meId(); const p=S.data.players[tid]; const d=D(); const other = tid!==meId();
   if(d.prof && d.prof.id!==tid) delete d.prof;
   d.prof ??= {id:tid, name:p?.name||(other?"":S.me.name)||"", sex: p? sexOf(p.id):"", pref: p&&prefMixed(p.id)?"mixed":"same", level:p? startLevel(tid):5, locs:p?.locations?.slice()||(locs().length===1?[locs()[0].id]:[])};
-  const f=d.prof; const lvlEditable = first || canSetLevel(tid);
+  const f=d.prof; const lvlEditable = first || isAdmin();
   if(first){ f.path ??= ""; f.reqLoc ??= (locs().length===1?locs()[0].id:""); f.newName ??= ""; f.newCourts ??= "4"; f.note ??= ""; }
   const lo=S.data.levels[tid];
   return `<section class="panel" style="max-width:640px">
@@ -737,6 +866,9 @@ function profileForm(first, tid){
       ${f.path==="organiser"?applyFields(f,"prof"):""}
       ${f.path?`<p class="eyebrow" style="margin-top:6px">Your player profile</p><p class="muted" style="font-size:.88rem">Organisers play too. Your starting level is your own estimate; results adjust it from there. Once saved, only an organiser can change it.</p>`:""}`
       : other ? `<div class="row between"><div><p class="eyebrow">Admin · editing another player</p><h2>${esc(p?.name||"Player")}</h2></div><button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div>` : `<h2>Edit profile</h2>`}
+    ${first?"":`<div class="f" style="font-size:.85rem;font-weight:600">Photo<div class="row">${avatar(tid,64)}
+      <label class="btn small" for="pf-photo" style="cursor:pointer">${S.data.players[tid]?.photo?"Change photo":"Add a photo"}</label><input id="pf-photo" type="file" accept="image/*" data-act-change="uploadPhoto" data-v="${esc(tid)}" style="position:absolute;width:1px;height:1px;opacity:0">
+      ${S.data.players[tid]?.photo?`<button class="btn ghost small" data-act="removePhoto" data-v="${esc(tid)}">Remove</button>`:""}</div></div>`}
     ${first&&!f.path?"":`<label class="f">${other?"Name":"Name shown to other players"}<input id="pf-name" type="text" data-bind="prof.name" value="${esc(f.name)}"></label>
     <div class="f" style="font-size:.85rem;font-weight:600">I am a<span class="hint">Used for all-male and all-female games and for Americano men's and women's winners</span>
       <div class="row">${[["M","Man"],["F","Woman"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-sex" id="pf-sex-${v}" data-bind="prof.sex" value="${v}" ${f.sex===v?"checked":""}> ${l}</label>`).join("")}</div></div>
@@ -746,6 +878,7 @@ function profileForm(first, tid){
       <div class="lvl" role="group" aria-label="Starting level">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button id="pf-l${n}" data-act="setLevel" data-v="${n}" aria-pressed="${+f.level===n}">${n}</button>`).join("")}</div></div>`
     : `<div class="f" style="font-size:.85rem;font-weight:600">Starting level <span class="hint">Locked. Ask an organiser if it needs changing.</span>
       <div class="row"><span class="chip court num" style="font-size:.9rem">🔒 ${startLevel(tid)} · ${LEVELS[Math.round(startLevel(tid))]||""}</span></div></div>`}
+    ${!first&&!other?blockFields():""}
     ${first?"":`<div class="f" style="font-size:.85rem;font-weight:600">${other?"Clubs":"Clubs you play at"}<span class="hint">At least one</span>
       <div class="row">${locs().map(l=>`<label class="check"><input type="checkbox" id="pf-loc-${esc(l.id)}" data-bind-arr="prof.locs" value="${esc(l.id)}" ${f.locs.includes(l.id)?"checked":""}> ${esc(l.name)}</label>`).join("")}</div></div>`}
     <div class="row"><button class="btn primary" data-act="saveProfile">${first?(f.path==="organiser"?"Send application and create profile":"Create profile"):"Save profile"}</button>${first?"":`<button class="btn" data-act="closeModal">Cancel</button>`}</div>`}
@@ -770,6 +903,7 @@ function ratingPanel(c,pid,withLeagues=true){
         <div class="factor"><p class="eyebrow">Starting level</p><div class="v">${r.L0.toFixed(1)}</div><p class="muted" style="font-size:.78rem">${r.resetDone?`Reset ${fmtDate(iso(new Date(r.reset.at)))}`:"Self-assessed"}</p></div>
         <div class="factor accent"><p class="eyebrow">Result factor</p><div class="v ${r.res>=0?"pos":"neg"}">${sign(r.res)}</div><p class="muted" style="font-size:.78rem">Wins/losses vs expected</p></div>
         <div class="factor accent"><p class="eyebrow">Margin factor</p><div class="v ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</div><p class="muted" style="font-size:.78rem">How much you won or lost by</p></div>
+        ${r.adj?`<div class="factor"><p class="eyebrow">Organiser nudges</p><div class="v ${r.adj>=0?"pos":"neg"}">${sign(r.adj,0)}</div><p class="muted" style="font-size:.78rem">${(S.data.levels[pid]?.nudges||[]).length} adjustment${(S.data.levels[pid]?.nudges||[]).length===1?"":"s"}</p></div>`:""}
         <div class="factor"><p class="eyebrow">Evidence</p><div class="v">${r.n}</div><p class="muted" style="font-size:.78rem">Matches${r.resetDone?" since reset":""} · ${Math.round(r.conf*100)}% confidence</p></div>
         ${c.club[pid]!=null?`<div class="factor ball"><p class="eyebrow">Club index</p><div class="v">${c.club[pid].toFixed(1)}</div><p class="muted" style="font-size:.78rem">${esc(c.loc?.name||"")} percentile</p></div>`:""}
         ${withLeagues?li.map(x=>`<div class="factor ball"><p class="eyebrow">${esc(x.l.name)}</p><div class="v">${x.idx!=null?x.idx.toFixed(1):"—"}</div><p class="muted" style="font-size:.78rem">League index</p></div>`).join(""):""}
@@ -782,8 +916,9 @@ function home(c){
   const lgs=Object.values(S.data.leagues).filter(l=>(p.locations||[]).includes(l.locId));
   return `
   <section class="panel">
-    <div class="row between"><div><p class="eyebrow">Player</p><h1>${esc(p.name)}</h1></div>
+    <div class="row between"><div class="row" style="flex-wrap:nowrap">${avatar(pid,56)}<div><p class="eyebrow">Player</p><h1>${esc(p.name)}</h1></div></div>
       <div class="row"><span class="chip ${mi.cls}">${esc(mi.label)}</span><button class="btn small" data-act="openPlayer" data-v="${esc(pid)}">Full breakdown</button><button class="btn small" data-act="editProfile">Edit profile</button>${!isAdmin()&&!organisesAnywhere()&&!myRequest()&&S.mode!=="sample"?`<button class="btn small" data-act="openApply">Become an organiser</button>`:""}</div></div>
+    ${badges(pid)}
     ${ratingPanel(c,pid)}
   </section>
   <section class="stack"><div class="row between"><h2>Upcoming games</h2><button class="btn ghost" data-act="tab" data-v="games">All games →</button></div>
@@ -797,7 +932,7 @@ function gameCard(g,c){
   const ros=gameRoster(g), mine=ros.includes(meId()), plan=sessionPlan(g), cap=capacity(eligibleRoster(g).length,courtList(g).length,g.singles);
   return `<button class="gcard" data-act="openGame" data-v="${esc(g.id)}">
     <span class="when">${fmtDate(g.date)} · ${esc(g.start)}–${esc(g.end)}</span><h3>${esc(g.name)}</h3>
-    <span class="row"><span class="chip">${g.format==="americano"?"Americano ladder":"Mixed rotation"}</span><span class="chip">${teamLabel(g.team)}</span><span class="chip">${courtList(g).length} courts</span></span>
+    <span class="row"><span class="chip">${esc(fmtLabel(g))}</span><span class="chip">${teamLabel(g.team)}</span><span class="chip">${courtList(g).length} courts</span></span>
     <span class="muted" style="font-size:.85rem">${ros.length} signed up · ${plan.rounds} rounds of ${plan.match} min${cap.sit?` · ${cap.sit} sit out per round`:""}</span>
     ${g.date<today()?`<span class="row">${gameWinners(g).map(w=>`<span class="chip ball">🏆 ${w.cat?w.cat+" · ":""}${esc(pname(w.id))}</span>`).join("")}</span>`:""}
     ${mine?(isInvited(g,meId())?`<span class="chip court" style="align-self:flex-start">Invited by the organiser</span>`:`<span class="chip good" style="align-self:flex-start">You're playing</span>`):""}</button>`;
@@ -811,7 +946,7 @@ function gamesList(c){
   const loc=c.loc; const gs=Object.values(S.data.games).filter(g=>g.locId===loc.id);
   const up=gs.filter(g=>g.date>=today()).sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
   const past=gs.filter(g=>g.date<today()).sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
-  return `<div class="row between"><h1>Games at ${esc(loc.name)}</h1>${isOrganiser(loc.id)?`<button class="btn primary" data-act="newGame">New game</button>`:""}</div>
+  return `<div class="row between"><h1>Games at ${esc(loc.name)}</h1>${matchiBtn(loc.id)}${isOrganiser(loc.id)?`<button class="btn primary" data-act="newGame">New game</button>`:""}</div>
     <section class="stack"><h2>Upcoming</h2>${up.length?`<div class="cards">${up.map(g=>gameCard(g,c)).join("")}</div>`:`<div class="empty">No upcoming games.${isOrganiser(loc.id)?" Create one with New game.":""}</div>`}</section>
     ${past.length?`<section class="stack"><h2>Played</h2><div class="cards">${past.map(g=>gameCard(g,c)).join("")}</div></section>`:""}`;
 }
@@ -837,9 +972,7 @@ function gameEdit(c){
     <div class="banner info"><p>${plan.mins>0?`<b>The app has set ${plan.rounds} round${plan.rounds===1?"":"s"} of ${plan.match} min</b>${plan.change?` with a ${plan.change}-min changeover`:""} in the ${plan.mins}-minute booking.${plan.fixed?" Fixed when round 1 was drawn; clear the rounds to recalculate.":plan.players&&plan.sit?(plan.fair?` Everyone sits out ${plan.rounds*plan.sit/plan.players} time${plan.rounds*plan.sit/plan.players===1?"":"s"}.`:" Sit-outs are spread as evenly as the numbers allow."):""}`:`<b>Enter the booked start and end times</b> and the app will set the match length and number of rounds.`}${(g.courts||[]).length?` With ${gameRoster({...g,id:g.id||"__new"}).length} players so far: ${cap.full} doubles court${cap.full===1?"":"s"}${cap.singles?" + 1 singles court":""}, ${cap.sit} sitting out each round.`:""}</p></div>
     <div class="grid g2">
       <label class="f">Team attribute<select id="ge-team" data-bind="game.team">${["random","mixed","male","female"].map(v=>`<option value="${v}" ${g.team===v?"selected":""}>${teamLabel(v)}</option>`).join("")}</select></label>
-      <label class="f">Round format<select id="ge-format" data-bind="game.format" data-rerender>
-        <option value="mixed" ${g.format==="mixed"?"selected":""}>Mixed rotation: planned in advance, everyone plays everyone</option>
-        <option value="americano" ${g.format==="americano"?"selected":""}>Americano ladder: drawn round by round, winners move up a court and split up</option></select></label>
+      <label class="f">Game type<select id="ge-format" data-bind="game.format" data-rerender>${Object.entries(FORMATS).map(([k,f])=>`<option value="${k}" ${fmtOf(g)===k?"selected":""}>${f.label}</option>`).join("")}</select><span class="hint">${esc(FORMATS[fmtOf(g)].desc)}</span></label>
     </div>
     <div><p class="eyebrow" style="margin-bottom:8px">Pairing priorities</p><div class="grid g3">${priSel("pTeam","Team attribute")}${priSel("pLevel","Similar-level partners")}${priSel("pVariety","New partners each round")}</div></div>
     <label class="check"><input type="checkbox" id="ge-singles" data-bind-bool="game.singles" ${g.singles!==false?"checked":""}> Use a spare court for singles when 2 or 3 players are left over</label>
@@ -854,9 +987,12 @@ function courtCard(g,rd,ri,ci,cc,c,org){
   const resA = !scored ? "" : +cc.sa>+cc.sb ? "won" : +cc.sa<+cc.sb ? "lost" : "draw";
   const resB = resA==="won" ? "lost" : resA==="lost" ? "won" : resA;
   const tag = r => r==="won" ? `<span class="res">✓ Winners</span>` : r==="draw" ? `<span class="res">Draw</span>` : "";
-  const side=(ids,cls,r)=>`<div class="side ${cls} ${r} ${ids.includes(me)&&!r?"me":""}">${tag(r)}${ids.map(id=>`<span class="nm">${esc(pname(id))}${id===me?" (you)":""}</span>`).join("")}<span class="avg">avg ${avg(ids.map(id=>rt(c.R,id))).toFixed(1)}</span></div>`;
+  const swap = org && !rd.done && fmtOf(g)==="custom"; const pool = swap ? eligibleRoster(g).sort((x,y)=>pname(x).localeCompare(pname(y))) : [];
+  const nm=(id,cls,i)=> swap ? `<select class="slot" id="slot-${esc(g.id)}-${ri}-${ci}-${cls}${i}" aria-label="Player" data-act-change="swapSlot" data-k="${esc(g.id)}|${ri}|${ci}|${cls}|${i}">${pool.map(p=>`<option value="${esc(p)}" ${p===id?"selected":""}>${esc(pname(p))}</option>`).join("")}</select>`
+    : `<span class="nm">${esc(pname(id))}${id===me?" (you)":""}</span>`;
+  const side=(ids,cls,r)=>`<div class="side ${cls} ${r} ${ids.includes(me)&&!r?"me":""}">${tag(r)}${ids.map((id,i)=>nm(id,cls,i)).join("")}<span class="avg">avg ${avg(ids.map(id=>rt(c.R,id))).toFixed(1)}</span></div>`;
   let move="";
-  if(scored && g.format==="americano"){
+  if(scored && fmtOf(g)==="kotc"){
     const cl=rd.courts.map(x=>x.court).sort((a,b)=>a-b), k=cl.indexOf(cc.court);
     const txt=r=> r==="won" ? (k>0?`↑ Up to court ${cl[k-1]}`:`Stays on court ${cc.court} (top)`) : r==="lost" ? (k<cl.length-1?`↓ Down to court ${cl[k+1]}`:`Stays on court ${cc.court} (bottom)`) : `Stays on court ${cc.court}`;
     move=`<div class="move"><span>${txt(resA)}</span><span>${txt(resB)}</span></div>`;
@@ -865,7 +1001,7 @@ function courtCard(g,rd,ri,ci,cc,c,org){
   const edit = org && (!rd.done || editing);
   return `<div class="court"><div class="court-head"><span class="court-no">Court ${cc.court}</span>${cc.singles?`<span class="chip warn">Singles</span>`:""}</div>
     <div class="court-body">${side(cc.a,"a",resA)}<div class="net"></div>${side(cc.b,"b",resB)}</div>
-    <div class="court-foot">${edit?`<input id="sc-${key.replace(/:/g,"-")}-a" type="number" min="0" inputmode="numeric" aria-label="Score, left pair" data-score="${key}" data-side="sa" value="${esc(sc.sa ?? cc.sa ?? "")}"><span class="score">–</span><input id="sc-${key.replace(/:/g,"-")}-b" type="number" min="0" inputmode="numeric" aria-label="Score, right pair" data-score="${key}" data-side="sb" value="${esc(sc.sb ?? cc.sb ?? "")}">`
+    <div class="court-foot">${edit?`<button class="btn small" data-act="openScore" data-v="${key}" aria-label="Open the big scoring screen for court ${cc.court}">Score</button>`:""}${edit?`<input id="sc-${key.replace(/:/g,"-")}-a" type="number" min="0" inputmode="numeric" aria-label="Score, left pair" data-score="${key}" data-side="sa" value="${esc(sc.sa ?? cc.sa ?? "")}"><span class="score">–</span><input id="sc-${key.replace(/:/g,"-")}-b" type="number" min="0" inputmode="numeric" aria-label="Score, right pair" data-score="${key}" data-side="sb" value="${esc(sc.sb ?? cc.sb ?? "")}">`
       : scored ? `<span class="score">${cc.sa} – ${cc.sb}</span>${was}` : `<span class="muted" style="font-size:.85rem">Score pending</span>`}</div>${move}</div>`;
 }
 function gameStandings(g){
@@ -876,15 +1012,15 @@ function gameStandings(g){
       x.p++; x.pf+=f; x.pa+=a; if(f>a) x.w++; else if(f<a) x.l++; else x.d++; });
     add(cc.a,sa,sb); add(cc.b,sb,sa); }); });
   const rows=Object.values(t);
-  if(g.format==="americano") rows.sort((a,b)=>b.pf-a.pf || (b.pf-b.pa)-(a.pf-a.pa) || b.w-a.w);
+  if(pointsFmt(g)) rows.sort((a,b)=>b.pf-a.pf || (b.pf-b.pa)-(a.pf-a.pa) || b.w-a.w);
   else rows.sort((a,b)=>b.w-a.w || (b.pf-b.pa)-(a.pf-a.pa) || b.pf-a.pf);
   return rows;
 }
 // Players tie when they have the same score (points won in Americano, matches won otherwise) and the same +/−.
-const tied = (g,a,b) => (g.format==="americano" ? a.pf===b.pf : a.w===b.w) && (a.pf-a.pa)===(b.pf-b.pa);
+const tied = (g,a,b) => (pointsFmt(g) ? a.pf===b.pf : a.w===b.w) && (a.pf-a.pa)===(b.pf-b.pa);
 function gameWinners(g){
   const rows=gameStandings(g); if(!rows.length) return [];
-  if(g.format!=="americano"){ return rows.filter(r=>tied(g,r,rows[0])).map(r=>({id:r.id,cat:""})); }
+  if(!pointsFmt(g)){ return rows.filter(r=>tied(g,r,rows[0])).map(r=>({id:r.id,cat:""})); }
   const out=[];
   ["M","F"].forEach(k=>{ const rs=rows.filter(r=>sexOf(r.id)===k); if(!rs.length) return;
     rs.filter(r=>tied(g,r,rs[0])).forEach(r=>out.push({id:r.id,cat:k})); });
@@ -892,7 +1028,7 @@ function gameWinners(g){
 }
 function standingsPanel(g){
   const rows=gameStandings(g); if(!rows.length) return "";
-  const am=g.format==="americano";
+  const am=pointsFmt(g);
   const rounds=g.rounds||[], done=rounds.filter(r=>r.done).length, planned=Math.max(rounds.length, sessionPlan(g).rounds);
   const finished = rounds.length>0 && done===rounds.length && (!am || done>=planned || g.date<today());
   const same=(a,b)=> tied(g,a,b);
@@ -907,7 +1043,7 @@ function standingsPanel(g){
   return `<section class="panel"><div class="row between"><div><p class="eyebrow">${finished?"Final result":`After ${done} round${done===1?"":"s"}`}</p>
     <h2>${head}</h2></div>
     ${finished?`<span class="chip ball">🏆 Game complete</span>`:`<span class="chip court">In progress</span>`}</div>
-    <p class="muted" style="font-size:.85rem">${am?"Americano crowns a men's and a women's winner: most points won, then +/−.":"Ranked by matches won, then +/−."} Players level on both share the place.${noCat.length?` ${noCat.map(r=>esc(pname(r.id))).join(", ")} ${noCat.length>1?"haven't":"hasn't"} chosen a winners category yet.`:""}</p>
+    <p class="muted" style="font-size:.85rem">${am?`${esc(fmtLabel(g))} crowns a men's and a women's winner: most points won, then +/−.`:"Ranked by matches won, then +/−."} Players level on both share the place.${noCat.length?` ${noCat.map(r=>esc(pname(r.id))).join(", ")} ${noCat.length>1?"haven't":"hasn't"} chosen a winners category yet.`:""}</p>
     <div class="tw"><table><thead><tr><th>#</th><th>Player</th>${am?`<th>Category</th>`:""}<th class="r">Played</th><th class="r">Won</th><th class="r">Lost</th><th class="r">Points for</th><th class="r">Against</th><th class="r">+/−</th></tr></thead><tbody>
     ${ranked.map(r=>{ const k=sexOf(r.id); return `<tr class="click ${winIds.has(r.id)?"lead":""}" data-act="openPlayer" data-v="${esc(r.id)}"><td><span class="medal ${winIds.has(r.id)?"m1":""}">${r.pos}</span></td><td>${esc(pname(r.id))}${r.id===meId()?" (you)":""}</td>
       ${am?`<td>${k?`<span class="chip ${catPos[r.id]===1?"ball":""}">${k==="M"?"Men's":"Women's"} #${catPos[r.id]}</span>`:`<span class="muted">—</span>`}</td>`:""}
@@ -940,8 +1076,9 @@ function gameDetail(c,g){
       <p class="muted">${fmtDate(g.date)} · ${esc(g.start)}–${esc(g.end)} · courts ${courtList(g).join(", ")||"none"}</p></div>
       <div class="row">${myPlayer()&&!org?"":""}
         ${myPlayer()? inG?(isInvited(g,me)?`<span class="chip court">You've been invited</span><button class="btn" data-act="leave" data-v="${esc(g.id)}">Decline invite</button>`:`<button class="btn" data-act="leave" data-v="${esc(g.id)}">Leave game</button>`) : `<button class="btn primary" data-act="join" data-v="${esc(g.id)}" ${blocked?"disabled":""}>Join game</button>${blocked?`<span class="chip warn">${esc(blocked)}</span>`:""}` :""}
-        ${org?`<button class="btn" data-act="editGame" data-v="${esc(g.id)}">Edit settings</button>`:""}</div></div>
-    <div class="row"><span class="chip court">${g.format==="americano"?"Americano ladder":"Mixed rotation"}</span><span class="chip">${teamLabel(g.team)}</span>
+        ${org?`<button class="btn" data-act="editGame" data-v="${esc(g.id)}">Edit settings</button>`:""}
+        ${g.date>=today()?`<a class="btn" href="https://wa.me/?text=${encodeURIComponent(shareText(g))}" target="_blank" rel="noopener">Share on WhatsApp</a><button class="btn" data-act="copyLink" data-v="${esc(g.id)}">Copy link</button>`:""}</div></div>
+    <div class="row"><span class="chip court">${esc(fmtLabel(g))}</span><span class="chip">${teamLabel(g.team)}</span>
       <span class="chip">Similar-level partners: ${g.pLevel||"high"}</span><span class="chip">Team attribute: ${g.pTeam||"high"}</span><span class="chip">Variety: ${g.pVariety||"medium"}</span></div>
     <div class="row">
       <div class="clock" data-session="${toMs(g.date,g.start)}|${toMs(g.date,g.end)}"><span class="eyebrow">Session</span><span class="t">--:--</span><span class="muted" style="font-size:.78rem">${plan.rounds} rounds × ${plan.match} min</span></div>
@@ -953,29 +1090,31 @@ function gameDetail(c,g){
     <section class="panel"><div class="row between"><h2>Players</h2><span class="chip num">${ros.length}</span></div>
       <p class="muted" style="font-size:.85rem">${cap.full} doubles court${cap.full===1?"":"s"}${cap.singles?" + 1 singles":""} · ${cap.sit} sit out per round</p>
       <div class="list">${ros.sort((a,b)=>rt(c.R,b)-rt(c.R,a)).map(id=>{ const p=S.data.players[id]; const warn=!canPlay(id)?"No membership":!fitsTeam(g,id)?(g.team==="mixed"?"Not playing mixed":"Doesn't fit team attribute"):"";
-        return `<div class="li"><span class="dot ${dotCls(id)}" title="${esc(playsIn(id))}"></span><span class="grow">${esc(p.name)}${id===me?" (you)":""}</span>${warn?`<span class="chip bad">${warn}</span>`:""}<span class="num mono">${rt(c.R,id).toFixed(2)}</span>${org?`<button class="btn ghost small" data-act="pickRemove" data-g="${esc(g.id)}" data-v="${esc(id)}" aria-label="Remove ${esc(p.name)}">✕</button>`:""}</div>`; }).join("")||`<p class="muted">Nobody yet.</p>`}</div>
+        return `<div class="li"><span class="dot ${dotCls(id)}" title="${esc(playsIn(id))}"></span>${avatar(id,24)}<span class="grow">${esc(p.name)}${id===me?" (you)":""}</span>${warn?`<span class="chip bad">${warn}</span>`:""}<span class="num mono">${rt(c.R,id).toFixed(2)}</span>${org?`<button class="btn ghost small" data-act="pickRemove" data-g="${esc(g.id)}" data-v="${esc(id)}" aria-label="Remove ${esc(p.name)}">✕</button>`:""}</div>`; }).join("")||`<p class="muted">Nobody yet.</p>`}</div>
       ${org?invitePanel(g,ros):""}
     </section>
     <section class="panel"><div class="row between"><h2>Rounds</h2><span class="chip">${rounds.length} of ${plan.rounds} planned</span></div>
       ${org?`<div class="row">
-        ${g.format==="americano"?`<button class="btn primary" data-act="genRound" data-v="${esc(g.id)}" ${!lastDone||elig.length<2?"disabled":""}>Draw round ${rounds.length+1}</button>`
+        ${byRound(g)?`<button class="btn primary" data-act="genRound" data-v="${esc(g.id)}" ${!lastDone||elig.length<2?"disabled":""}>Draw round ${rounds.length+1}</button>`
           :`<button class="btn primary" data-act="planAll" data-v="${esc(g.id)}" ${elig.length<2?"disabled":""}>${rounds.length?"Re-plan unplayed rounds":"Plan all "+plan.rounds+" rounds"}</button><button class="btn" data-act="genRound" data-v="${esc(g.id)}" ${elig.length<2?"disabled":""}>Add one round</button>`}
         ${rounds.length?`<button class="btn danger" data-act="clearRounds" data-v="${esc(g.id)}">${S.ui.confirm==="clr-"+g.id?"Tap again to clear":"Clear rounds"}</button>`:""}</div>
-        ${g.format==="americano"&&!lastDone?`<p class="muted" style="font-size:.85rem">Enter this round's scores to draw the next one. Winners move up a court and losers move down, then each pair splits so partners play against each other.</p>`:""}`:""}
+        ${byRound(g)&&!lastDone?`<p class="muted" style="font-size:.85rem">Enter this round's scores to draw the next one. ${fmtOf(g)==="kotc"?"Winners move up a court and losers move down, then each pair splits so partners play against each other.":"Players are re-paired by the points table: 1st & 4th v 2nd & 3rd on each court."}</p>`:""}
+        ${fmtOf(g)==="custom"&&rounds.some(r=>!r.done)?`<p class="muted" style="font-size:.85rem">Custom game: tap any player's name on a court to swap them with someone else, including players sitting out.</p>`:""}`:""}
       ${rounds.length?rounds.map((rd,ri)=>`<div class="round">
         <div class="row between"><h3>Round ${ri+1}</h3><div class="row">${rd.done?`<span class="chip good">Final</span>`:ri===liveRi?`<span class="chip court">Up next</span>`:`<span class="chip">Planned</span>`}
           ${org&&!rd.done?`<button class="btn small primary" data-act="finishRound" data-g="${esc(g.id)}" data-v="${ri}">Save scores</button>`:""}
           ${rd.editedAt?`<span class="chip warn" title="Corrected by ${esc(pname(rd.editedBy))}">Corrected ${fmtDT(rd.editedAt)}</span>`:""}
           ${org&&rd.done&&S.ui.editRound!==`${g.id}:${ri}`?`<button class="btn small" data-act="editRound" data-g="${esc(g.id)}" data-v="${ri}">Edit scores</button>`:""}
           ${org&&rd.done&&S.ui.editRound===`${g.id}:${ri}`?`<button class="btn small primary" data-act="saveCorrection" data-g="${esc(g.id)}" data-v="${ri}">Save corrections</button><button class="btn small" data-act="cancelEdit" data-g="${esc(g.id)}" data-v="${ri}">Cancel</button>`:""}</div></div>
-        ${org&&rd.done&&S.ui.editRound===`${g.id}:${ri}`?`<p class="muted" style="font-size:.85rem">Change any score and save. Results and levels update straight away.${g.format==="americano"&&ri<rounds.length-1?` Round ${ri+2} was drawn from the old scores and stays as drawn${rounds.slice(ri+1).some(r=>r.done)?".":"; you can re-draw it after saving."}`:""}</p>`:""}
-        ${org&&g.format==="americano"&&rd.done&&rd.editedAt&&ri===rounds.length-2&&!rounds[ri+1].done&&(rounds[ri+1].drawnAt||0)<rd.editedAt?`<div class="banner"><p>Round ${ri+2} was drawn before this correction, so its courts may not match who won.</p><button class="btn small primary" data-act="redrawNext" data-g="${esc(g.id)}" data-v="${ri}">Re-draw round ${ri+2}</button></div>`:""}
+        ${org&&rd.done&&S.ui.editRound===`${g.id}:${ri}`?`<p class="muted" style="font-size:.85rem">Change any score and save. Results and levels update straight away.${byRound(g)&&ri<rounds.length-1?` Round ${ri+2} was drawn from the old scores and stays as drawn${rounds.slice(ri+1).some(r=>r.done)?".":"; you can re-draw it after saving."}`:""}</p>`:""}
+        ${org&&byRound(g)&&rd.done&&rd.editedAt&&ri===rounds.length-2&&!rounds[ri+1].done&&(rounds[ri+1].drawnAt||0)<rd.editedAt?`<div class="banner"><p>Round ${ri+2} was drawn before this correction, so its courts may not match who won.</p><button class="btn small primary" data-act="redrawNext" data-g="${esc(g.id)}" data-v="${ri}">Re-draw round ${ri+2}</button></div>`:""}
         ${ri===liveRi?`<div class="row" style="align-items:stretch">${roundClock(g,rd,ri,org)}${soundButton()}</div>`:""}
         <div class="courts">${rd.courts.map((cc,ci)=>courtCard(g,rd,ri,ci,cc,c,org)).join("")}</div>
         ${(rd.sitOut||[]).length?`<p class="sitout">Sitting out: ${rd.sitOut.map(id=>`<b>${esc(pname(id))}</b>`).join(", ")}</p>`:""}
       </div>`).join(""):`<div class="empty">${org?"No rounds yet. Plan them once players have signed up.":"The organiser hasn't drawn the rounds yet."}</div>`}
     </section>
-  </div>`;
+  </div>
+  ${chatPanel(g)}`;
 }
 /* buzzer: Web Audio needs one tap on the page before it may play */
 let AC=null; const SOUND={on:true};
@@ -1041,14 +1180,15 @@ function rankings(c){
   const ps=playersAt(c.loc.id).map(p=>c.R[p.id]).filter(Boolean).sort((a,b)=>b.r-a.r);
   return `<div class="row between"><h1>Rankings · ${esc(c.loc.name)}</h1></div>
   <div class="tw"><table><thead><tr><th>#</th><th>Player</th><th class="r">Starting</th><th class="r">Result factor</th><th class="r">Margin factor</th><th class="r">Weighted level</th><th class="r">Club index</th><th class="r">Matches</th><th class="r">W–L</th></tr></thead>
-  <tbody>${ps.map((r,i)=>`<tr class="click" data-act="openPlayer" data-v="${esc(r.id)}"><td class="num">${i+1}</td><td>${esc(pname(r.id))}${r.id===meId()?" (you)":""}</td><td class="r num">${r.L0.toFixed(1)}</td><td class="r num ${r.res>=0?"pos":"neg"}">${sign(r.res)}</td><td class="r num ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</td><td class="r num"><b>${r.r.toFixed(2)}</b></td><td class="r num">${c.club[r.id]?.toFixed(1)??"—"}</td><td class="r num">${r.n}</td><td class="r num">${r.w}–${r.l}</td></tr>`).join("")}</tbody></table></div>
+  <tbody>${ps.map((r,i)=>`<tr class="click" data-act="openPlayer" data-v="${esc(r.id)}"><td class="num">${i+1}</td><td>${avatar(r.id,22)} ${esc(pname(r.id))}${r.id===meId()?" (you)":""}</td><td class="r num">${r.L0.toFixed(1)}</td><td class="r num ${r.res>=0?"pos":"neg"}">${sign(r.res)}</td><td class="r num ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</td><td class="r num"><b>${r.r.toFixed(2)}</b></td><td class="r num">${c.club[r.id]?.toFixed(1)??"—"}</td><td class="r num">${r.n}</td><td class="r num">${r.w}–${r.l}</td></tr>`).join("")}</tbody></table></div>
   <details class="panel"><summary>How levels are calculated</summary>
     <div class="stack" style="max-width:68ch;font-size:.92rem">
       <p><b>Starting level</b> is what each player entered when they signed up (1–10). Every match then adjusts it.</p>
       <p>Before each match the system works out the <b>expected result</b> from the two pairs' average levels: equal pairs are 50/50, a 1-level gap makes the stronger pair about 64% favourites, a 2-level gap about 76%.</p>
       <p><b>Result factor</b> moves you by half the step size × (actual result − expected). Beat a stronger pair and you gain a lot; lose to a weaker pair and you drop a lot. <b>Margin factor</b> does the same with your share of the points, so a 9–7 loss costs far less than 2–14.</p>
       <p>The <b>step size</b> starts at 0.9 levels and shrinks as you play (about 0.44 after 10 matches, 0.27 after 30), so new players settle quickly and established levels stay steady. <b>Weighted level</b> = starting level + result factor + margin factor, kept between 1 and 10. It is the level used to balance pairs.</p>
-      <p>If an organiser resets a player's starting level, their result and margin factors go back to 0 and only later matches count.</p>
+      <p>Organisers can <b>nudge</b> a player's level up or down by one, which keeps all their results. Only the admin can <b>reset</b> a starting level, which sets the result and margin factors back to 0.</p>
+      <p>When an established player plays at a club that's new to them, their first 5 matches there use a wider step, so their level settles quickly against the new club's players.</p>
       <p><b>Club index</b> and <b>league index</b> rank you against everyone at the club, or in the league, on a 1–10 scale: the top player is 10, the bottom 1.</p>
     </div></details>`;
 }
@@ -1119,6 +1259,7 @@ function adminLocs(){
   return `${locs().map(l=>{ d.locEdit ??= {}; const e=d.locEdit[l.id] ??= {name:l.name, courts:String((l.courts||[]).join(", "))};
     return `<section class="panel"><div class="grid g2"><label class="f">Location name<input id="le-n-${esc(l.id)}" type="text" data-bind="locEdit.${esc(l.id)}.name" value="${esc(e.name)}"></label>
     <label class="f">Court numbers<span class="hint">Comma-separated</span><input id="le-c-${esc(l.id)}" type="text" data-bind="locEdit.${esc(l.id)}.courts" value="${esc(e.courts)}"></label></div>
+    <label class="f">Matchi booking page<span class="hint">Paste the club's Matchi link. Organisers and players get a "Book courts on Matchi" button.</span><input id="le-m-${esc(l.id)}" type="url" inputmode="url" placeholder="https://www.matchi.se/facilities/..." data-bind="locEdit.${esc(l.id)}.matchi" value="${esc(e.matchi ?? l.matchiUrl ?? "")}"></label>
     <div class="row"><button class="btn" data-act="saveLoc" data-v="${esc(l.id)}">Save</button><span class="muted" style="font-size:.85rem">${playersAt(l.id).length} players · ${(l.organiserIds||[]).length} organisers</span></div></section>`; }).join("")}
   <section class="panel flat"><h2>Add a location</h2><div class="grid g2"><label class="f">Name<input id="nl-name" type="text" data-bind="loc.name" value="${esc(d.loc.name)}"></label><label class="f">Number of courts<input id="nl-courts" type="number" min="1" data-bind="loc.courts" value="${esc(d.loc.courts)}"></label></div>
   <div><button class="btn primary" data-act="createLoc">Add location</button></div></section>
@@ -1130,22 +1271,39 @@ function modal(c){
   const m=S.ui.modal; if(!m) return "";
   let inner="";
   if(m.type==="profile") inner=profileForm(false, m.id);
+  if(m.type==="score"){ const [gid,ri,ci]=m.key.split(":"); const g=S.data.games[gid]; const cc=g?.rounds?.[+ri]?.courts?.[+ci]; if(!cc) return "";
+    const sc=S.ui.scores[m.key]||{}; const va=+(sc.sa ?? cc.sa ?? 0)||0, vb=+(sc.sb ?? cc.sb ?? 0)||0;
+    return `<div class="scorepad" role="dialog" aria-modal="true" aria-label="Scoring court ${cc.court}">
+      <div class="sp-top"><b>Court ${cc.court} · Round ${+ri+1}</b><button class="btn small" data-act="closeModal">Done</button></div>
+      <button class="sp-side a" data-act="scoreTap" data-v="sa"><span class="sp-names">${cc.a.map(id=>esc(pname(id))).join(" & ")}</span><span class="sp-num">${va}</span><span class="sp-hint">Tap to add a point</span></button>
+      <button class="sp-side b" data-act="scoreTap" data-v="sb"><span class="sp-names">${cc.b.map(id=>esc(pname(id))).join(" & ")}</span><span class="sp-num">${vb}</span><span class="sp-hint">Tap to add a point</span></button>
+      <div class="sp-bottom"><button class="btn small" data-act="scoreUndo" data-v="sa">− left</button><span class="muted" style="font-size:.8rem">Scores go into the round; save the round when every court is done.</span><button class="btn small" data-act="scoreUndo" data-v="sb">− right</button></div></div>`; }
+  if(m.type==="notices"){ const ns=myNotices().slice(0,30);
+    inner=`<div class="row between"><div><p class="eyebrow">Alerts</p><h2>Spaces in games</h2></div><button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div>
+      ${ns.length?`<div class="list">${ns.map(n=>{ const g=S.data.games[n.gameId]; const can=!isOrganiser(g.locId)&&!gameRoster(g).includes(meId());
+        return `<div class="li" style="flex-wrap:wrap"><span class="grow" style="white-space:normal">${esc(noticeText(n))} <span class="muted" style="font-size:.78rem">${fmtDT(n.at)}</span></span>
+        ${can?`<button class="btn small primary" data-act="join" data-v="${esc(g.id)}">Join</button>`:""}<button class="btn small" data-act="openGame" data-v="${esc(g.id)}">Open game</button></div>`; }).join("")}</div>`
+      :`<p class="muted">No drop-outs in upcoming games at your clubs.</p>`}`; }
   if(m.type==="apply"){ const f=(D().apply ??= {reqLoc:(myPlayer()?.locations||[])[0]||"", newName:"", newCourts:"4", note:""});
     inner=`<div class="row between"><div><p class="eyebrow">Organisers</p><h2>Apply to be an organiser</h2></div><button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div>
       <p class="muted" style="font-size:.9rem">Organisers set up games, draw rounds, run the match clock, enter scores and create leagues. The admin reviews every application.</p>
       ${applyFields(f,"apply")}<div class="row"><button class="btn primary" data-act="submitApply">Send application</button><button class="btn" data-act="closeModal">Cancel</button></div>`; }
   if(m.type==="player"){ const p=S.data.players[m.id]; const r=c.R[m.id]; if(!p||!r) return "";
     const expRate=r.n? r.expSum/r.n : 0, actual=r.n? (r.w+r.d*0.5)/r.n : 0;
-    inner=`<div class="row between"><div><p class="eyebrow">${esc(playsIn(m.id))} · ${LEVELS[Math.round(r.L0)]} at sign-up</p><h2>${esc(p.name)}</h2></div><div class="row">${isAdmin()&&m.id!==meId()?`<button class="btn small" data-act="adminEditPlayer" data-v="${esc(m.id)}">Edit profile</button>`:""}<button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div></div>
+    inner=`<div class="row between"><div><p class="eyebrow">${esc(playsIn(m.id))} · ${LEVELS[Math.round(r.L0)]} at sign-up</p><h2 class="row" style="flex-wrap:nowrap">${avatar(m.id,44)}<span>${esc(p.name)}</span></h2>${badges(m.id)}</div><div class="row">${isAdmin()&&m.id!==meId()?`<button class="btn small" data-act="adminEditPlayer" data-v="${esc(m.id)}">Edit profile</button>`:""}<button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div></div>
       ${ratingPanel(c,m.id)}
-      ${canSetLevel(m.id)?(()=>{ const lo=S.data.levels[m.id]; const cur=startLevel(m.id); const dv=D().lvl?.[m.id] ?? cur;
-        return `<div class="banner info"><p><b>Starting level ${cur}</b> · ${LEVELS[Math.round(cur)]||""}<br><span class="muted" style="font-size:.82rem">${lo?`Reset ${fmtDT(lo.at)} by ${esc(pname(lo.by))}. Before that: starting ${lo.prev}${lo.prevWeighted!=null?`, weighted ${(+lo.prevWeighted).toFixed(2)}`:""}.`:`Set by the player at sign-up.`} Changing it is a fresh start: result and margin factors go back to 0 and only matches after the change move the level.</span></p>
-          <select id="lvl-${esc(m.id)}" data-bind="lvl.${esc(m.id)}" style="width:auto" aria-label="New starting level">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${+dv===n?"selected":""}>${n} · ${LEVELS[n]}</option>`).join("")}</select>
-          <button class="btn primary small" data-act="saveLevel" data-v="${esc(m.id)}">Save level</button></div>`; })():""}
+      ${canSetLevel(m.id)?(()=>{ const lo=S.data.levels[m.id]||{}; const cur=startLevel(m.id); const dv=D().lvl?.[m.id] ?? cur; const nz=(lo.nudges||[]).slice().sort((a,b)=>b.at-a.at);
+        return `<div class="banner info" style="flex-direction:column;align-items:stretch"><div class="row between"><p style="min-width:0"><b>Level ${r.r.toFixed(2)}</b> · organisers can nudge it one step at a time. Results so far are kept.</p>
+          <div class="row"><button class="btn small" data-act="nudgeLevel" data-g="-1" data-v="${esc(m.id)}" ${r.r<=1?"disabled":""}>− 1 level</button><button class="btn small" data-act="nudgeLevel" data-g="1" data-v="${esc(m.id)}" ${r.r>=10?"disabled":""}>+ 1 level</button></div></div>
+          ${nz.length?`<p class="muted" style="font-size:.8rem">${nz.slice(0,5).map(n=>`${n.d>0?"+1":"−1"} by ${esc(pname(n.by))}, ${fmtDT(n.at)}`).join(" · ")}</p>`:""}
+          ${isAdmin()?`<details><summary style="font-size:.85rem">Admin: reset starting level</summary><div class="row" style="margin-top:8px"><span class="muted" style="font-size:.82rem">${lo.at?`Last reset ${fmtDT(lo.at)}.`:"Starting level set by the player."} A reset sets result and margin factors back to 0.</span>
+            <select id="lvl-${esc(m.id)}" data-bind="lvl.${esc(m.id)}" style="width:auto" aria-label="New starting level">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${+dv===n?"selected":""}>${n} · ${LEVELS[n]}</option>`).join("")}</select>
+            <button class="btn small" data-act="saveLevel" data-v="${esc(m.id)}">Reset to this level</button></div></details>`:""}</div>`; })():""}
       <div class="tw"><table><tbody>
         <tr><td>Starting level (self-assessed)</td><td class="r num">${r.L0.toFixed(2)}</td></tr>
         <tr><td>Result factor · wins and losses against expectation</td><td class="r num ${r.res>=0?"pos":"neg"}">${sign(r.res)}</td></tr>
         <tr><td>Margin factor · share of points won</td><td class="r num ${r.mar>=0?"pos":"neg"}">${sign(r.mar)}</td></tr>
+        ${r.adj?`<tr><td>Organiser nudges</td><td class="r num ${r.adj>=0?"pos":"neg"}">${sign(r.adj)}</td></tr>`:""}
         <tr><td><b>Weighted level</b></td><td class="r num"><b>${r.r.toFixed(2)}</b></td></tr>
         <tr><td>Current step size (shrinks with matches played)</td><td class="r num">${r.k.toFixed(2)}</td></tr>
         <tr><td>Average opponent level</td><td class="r num">${r.n?(r.oppSum/r.n).toFixed(2):"—"}</td></tr>
@@ -1153,7 +1311,7 @@ function modal(c){
         <tr><td>Upset wins (under 40% expected) · upset losses (over 60%)</td><td class="r num">${r.upsets} · ${r.badLosses}</td></tr>
       </tbody></table></div>
       ${r.hist.length?`<div><p class="eyebrow" style="margin-bottom:6px">Recent matches</p><div class="tw"><table><thead><tr><th>Date</th><th>With</th><th>Against</th><th class="r">Score</th><th class="r">Expected</th><th class="r">Change</th></tr></thead><tbody>
-        ${r.hist.slice(-10).reverse().map(h=>`<tr><td class="num">${fmtDate(h.date)} R${h.round}</td><td>${esc(h.partners.map(pname).join(", ")||"Singles")}</td><td>${esc(h.opps.map(pname).join(" & "))}</td><td class="r num">${h.score}</td><td class="r num">${Math.round(h.exp*100)}%</td><td class="r num ${h.delta>=0?"pos":"neg"}">${sign(h.delta)}</td></tr>`).join("")}</tbody></table></div></div>`:`<p class="muted">No matches played yet.</p>`}
+        ${r.hist.slice(-10).reverse().map(h=>`<tr><td class="num">${fmtDate(h.date)} R${h.round}</td><td>${esc(h.partners.map(pname).join(", ")||"Singles")}</td><td>${esc(h.opps.map(pname).join(" & "))}</td><td class="r num">${h.score}</td><td class="r num">${Math.round(h.exp*100)}%</td><td class="r num ${h.delta>=0?"pos":"neg"}">${sign(h.delta)}${h.boost?` <span title="New-club boost: wider step for the first 5 matches at this club">⚡</span>`:""}</td></tr>`).join("")}</tbody></table></div></div>`:`<p class="muted">No matches played yet.</p>`}
       ${isAdmin()?`<div><p class="eyebrow" style="margin-bottom:6px">Admin</p><p style="font-size:.9rem">Joined ${fmtDate(p.joinedAt)} · ${esc(memberInfo(m.id).label)} · ${p.signInCount||0} sign-ins</p>
         ${(p.signIns||[]).length?`<p class="muted mono" style="font-size:.78rem">${p.signIns.map(fmtDT).join(" · ")}</p>`:""}</div>`:""}`;
   }
@@ -1188,15 +1346,18 @@ const A = {
   retryLive(){ startLive(); },
   async signIn(){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo: location.origin+location.pathname}}); if(error) toast("Couldn't start Google sign-in: "+error.message); },
   async signOut(){ await sb.auth.signOut(); },
-  openGame(v){ S.ui.tab="games"; S.ui.view={type:"game",id:v}; window.scrollTo(0,0); },
+  openGame(v){ S.ui.tab="games"; S.ui.view={type:"game",id:v}; S.ui.modal=null; window.scrollTo(0,0); },
   openLeague(v){ S.ui.tab="leagues"; S.ui.view={type:"league",id:v}; window.scrollTo(0,0); },
   openPlayer(v){ S.ui.modal={type:"player",id:v}; },
   closeModal(){ S.ui.modal=null; delete D().prof; },
   editProfile(){ delete D().prof; S.ui.modal={type:"profile"}; },
   adminEditPlayer(v){ if(!isAdmin()) return; delete D().prof; S.ui.modal={type:"profile", id:v}; },
-  async saveLevel(v){ if(!canSetLevel(v)) return toast("Only an organiser or the admin can change starting levels.");
+  async nudgeLevel(v,el){ if(!canSetLevel(v)) return toast("Only an organiser at this player's club can nudge their level.");
+    const d=+el.dataset.g; const lo=clone(S.data.levels[v]||{}); lo.nudges=[...(lo.nudges||[]),{d, by:meId(), at:Date.now()}];
+    if(await put("levels",v,lo)) toast(`${pname(v)} nudged ${d>0?"up":"down"} one level`); },
+  async saveLevel(v){ if(!isAdmin()) return toast("Only the admin can reset a starting level.");
     const nv=+(D().lvl?.[v] ?? startLevel(v)); const cur=startLevel(v); if(nv===cur) return toast("That's already the starting level.");
-    if(await put("levels",v,{level:nv, prev:cur, prevWeighted:+(ctx().R[v]?.r ?? cur).toFixed(2), by:meId(), at:Date.now()})){ if(D().lvl) delete D().lvl[v]; toast(`${pname(v)} reset to level ${nv} · factors back to 0`); } },
+    if(await put("levels",v,{...(S.data.levels[v]||{}), nudges:[], level:nv, prev:cur, prevWeighted:+(ctx().R[v]?.r ?? cur).toFixed(2), by:meId(), at:Date.now()})){ if(D().lvl) delete D().lvl[v]; toast(`${pname(v)} reset to level ${nv} · factors back to 0`); } },
   setLevel(v){ D().prof.level=+v; },
   async saveProfile(){ const f=D().prof; const id=f.id||meId(); if(!id) return;
     const other = id!==meId(); if(other && !isAdmin()) return toast("Only the admin can edit other players.");
@@ -1215,16 +1376,18 @@ const A = {
     delete p.cat;
     if(!(await put("players",id,p))) return;
     if(!ex && !other && f.path==="organiser"){ const r=applyRecord(f); r.name=p.name; await put("organiser_requests",id,r); }
-    if(ex && canSetLevel(id) && +f.level!==startLevel(id)){ const cur=startLevel(id); await put("levels",id,{level:+f.level, prev:cur, prevWeighted:+(ctx().R[id]?.r ?? cur).toFixed(2), by:meId(), at:now}); }
+    if(ex && isAdmin() && +f.level!==startLevel(id)){ const cur=startLevel(id); await put("levels",id,{level:+f.level, prev:cur, prevWeighted:+(ctx().R[id]?.r ?? cur).toFixed(2), by:meId(), at:now}); }
     S.ui.modal = other ? {type:"player", id} : null; delete D().prof; toast(!ex?(f.path==="organiser"?"Profile created · application sent to the admin":"Welcome to the club"):other?`${p.name} updated`:"Profile saved");
   },
   async createLoc(){ const f=D().loc; const n=Math.max(1,Math.min(30,parseInt(f.courts)||0)); if(!f.name.trim()) return toast("Name the location.");
     const id="loc-"+rid(); if(await put("locations",id,{id,name:f.name.trim(),courts:Array.from({length:n},(_,i)=>i+1),organiserIds:[],createdAt:Date.now()})){ S.ui.loc=id; delete D().loc; toast("Location added"); } },
   async saveLoc(v){ const e=D().locEdit[v]; const l=clone(S.data.locations[v]); const cs=[...new Set(e.courts.split(/[,\s]+/).map(x=>parseInt(x)).filter(x=>x>0))].sort((a,b)=>a-b);
-    if(!cs.length) return toast("Add at least one court number."); l.name=e.name.trim()||l.name; l.courts=cs; if(await put("locations",v,l)) toast("Location saved"); },
+    if(!cs.length) return toast("Add at least one court number."); l.name=e.name.trim()||l.name; l.courts=cs;
+    if(e.matchi!=null){ const u=String(e.matchi).trim(); if(u && !/^https:\/\/[^\s]+$/.test(u)) return toast("Enter the Matchi link starting with https://"); if(u) l.matchiUrl=u; else delete l.matchiUrl; }
+    if(await put("locations",v,l)) toast("Location saved"); },
   setLoc(v){ S.ui.loc=v; S.ui.view=null; },
-  newGame(){ const loc=curLoc(); D().game={id:null,locId:loc.id,name:"",date:addDays(today(),7),start:"",end:"",changeover:DEFAULT_CHANGEOVER,courts:(loc.courts||[]).slice(0,Math.min(3,(loc.courts||[]).length)),team:"random",format:"mixed",pTeam:"high",pLevel:"high",pVariety:"medium",singles:true,leagueId:"",picks:[],removed:[],rounds:[]}; S.ui.view={type:"gameEdit",id:null}; },
-  editGame(v){ D().game=curGame(v); S.ui.view={type:"gameEdit",id:v}; },
+  newGame(){ const loc=curLoc(); D().game={id:null,locId:loc.id,name:"",date:addDays(today(),7),start:"",end:"",changeover:DEFAULT_CHANGEOVER,courts:(loc.courts||[]).slice(0,Math.min(3,(loc.courts||[]).length)),team:"random",format:"americano",fv:2,pTeam:"high",pLevel:"high",pVariety:"medium",singles:true,leagueId:"",picks:[],removed:[],rounds:[]}; S.ui.view={type:"gameEdit",id:null}; },
+  editGame(v){ const g=curGame(v); g.format=fmtOf(g); g.fv=2; D().game=g; S.ui.view={type:"gameEdit",id:v}; },
   async saveGame(){ const g=clone(D().game); if(!g.name.trim()) return toast("Give the game a name.");
     const st=normTime(g.start), en=normTime(g.end);
     if(!st) return toast("Enter the start time as 00:00, for example 19:00."); if(!en) return toast("Enter the end time as 00:00, for example 21:00.");
@@ -1242,7 +1405,8 @@ const A = {
     if(g0&&(g0.picks||[]).includes(meId())) s.declined={...(s.declined||{}),[v]:Date.now()};
     await put("signups",meId(),s);
     const g=S.data.games[v]; if(g&&(g.picks||[]).includes(meId())){ if(isOrganiser(g.locId)){ const gg=curGame(v); gg.picks=gg.picks.filter(x=>x!==meId()); await put("games",v,gg); } }
-    toast("You've left the game"); },
+    if(g0 && g0.date>=today() && !(g0.rounds||[]).some(r=>r.done)){ const nid="n-"+rid(); await put("notices",nid,{type:"dropout", gameId:v, locId:g0.locId, pid:meId(), at:Date.now(), declined:isInvited(g0,meId())}); }
+    toast(isInvited(g0||{},meId())?"Invite declined · the organiser has been told":"You've left the game · others have been told a space is free"); },
   async invite(v,el){ const g=curGame(el.dataset.g); g.picks=[...new Set([...(g.picks||[]),v])]; g.invites={...(g.invites||{}),[v]:Date.now()}; g.removed=(g.removed||[]).filter(x=>x!==v);
     if(await put("games",g.id,g)) toast(`${pname(v)} invited`); },
   async pickRemove(v,el){ const g=curGame(el.dataset.g); g.picks=(g.picks||[]).filter(x=>x!==v); g.removed=[...new Set([...(g.removed||[]),v])]; await put("games",g.id,g); },
@@ -1261,6 +1425,38 @@ const A = {
     SOUND.on = (SOUND.on && wasReady) ? false : true;   // "Tap to allow" → on; on → off; off → on
     try{ localStorage.setItem("courtside-sound", SOUND.on?"on":"off"); }catch(e){}
     if(SOUND.on) setTimeout(()=>{ if(audioReady()) tone(AC.currentTime+0.05,880,0.15,0.2); schedule(); },120); },
+  async swapSlot(v,el){ const [gid,ri,ci,side,idx]=el.dataset.k.split("|"); const g=curGame(gid); const rd=g.rounds[+ri]; if(!rd||rd.done) return;
+    const arr=rd.courts[+ci][side]; const cur=arr[+idx]; if(v===cur) return; let found=false;
+    rd.courts.forEach(c=>["a","b"].forEach(sd=>c[sd].forEach((p,i)=>{ if(!found && p===v){ c[sd][i]=cur; found=true; } })));
+    if(!found){ const si=(rd.sitOut||[]).indexOf(v); if(si>=0){ rd.sitOut[si]=cur; found=true; } }
+    if(!found) rd.sitOut=[...(rd.sitOut||[]),cur];
+    arr[+idx]=v; await put("games",gid,g); },
+  async block(v){ const cur=S.data.player_blocks?.[meId()]?.blocked||[]; if(cur.length>=2) return toast("You can name up to 2 players.");
+    if(await put("player_blocks",meId(),{blocked:[...new Set([...cur,v])]})){ D().blockQ=""; toast(`You won't be paired with ${pname(v)}`); } },
+  async unblock(v){ const cur=S.data.player_blocks?.[meId()]?.blocked||[]; await put("player_blocks",meId(),{blocked:cur.filter(x=>x!==v)}); },
+  openNotices(){ S.ui.modal={type:"notices"}; try{ localStorage.setItem("courtside-notices-seen",String(Date.now())); }catch(e){} },
+  async copyLink(v){ const g=S.data.games[v]; const link=gameLink(g); try{ await navigator.clipboard.writeText(link); toast("Link copied"); }catch(e){ toast(link); } },
+  async sendChat(v){ const body=String(D().chatDraft?.[v]||"").trim(); if(!body) return; if(body.length>1000) return toast("Keep messages under 1,000 characters.");
+    if(S.mode==="sample"){ (S.chat[v] ||= []).push({id:rid(),game_id:v,author:meId(),body,created_at:new Date().toISOString()}); D().chatDraft[v]=""; return; }
+    const {data,error}=await sb.from("game_messages").insert({game_id:v, body}).select().single();
+    if(error) return toast(dbError(error)); D().chatDraft[v]=""; const list=(S.chat[v] ||= []); if(!list.some(m=>m.id===data.id)) list.push(data); },
+  async delChat(v,el){ const gid=el.dataset.g; if(S.mode!=="sample"){ const {error}=await sb.from("game_messages").delete().eq("id",v); if(error) return toast(dbError(error)); }
+    S.chat[gid]=(S.chat[gid]||[]).filter(m=>m.id!==v); },
+  async uploadPhoto(v,el){ const pid=el.dataset.v, file=el.files&&el.files[0]; if(!file) return;
+    if(file.size>15e6) return toast("That photo is too large. Choose one under 15 MB.");
+    let blob; try{ blob=await resizeImage(file); }catch(e){ return toast(e.message); }
+    let url;
+    if(S.mode==="sample"){ url=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); }); }
+    else { const path=`${pid}/${Date.now()}.jpg`; const {error}=await sb.storage.from("avatars").upload(path,blob,{contentType:"image/jpeg",upsert:true});
+      if(error) return toast(/bucket|not found/i.test(error.message)?"Photo storage isn't switched on yet.":"Couldn't upload the photo: "+error.message);
+      url=sb.storage.from("avatars").getPublicUrl(path).data.publicUrl; }
+    const pl=clone(S.data.players[pid]); pl.photo=url; if(await put("players",pid,pl)) toast("Photo saved"); },
+  async removePhoto(v){ const pl=clone(S.data.players[v]); delete pl.photo; await put("players",v,pl); },
+  openScore(v){ S.ui.modal={type:"score",key:v}; },
+  scoreTap(v){ const k=S.ui.modal.key; const [gid,ri,ci]=k.split(":"); const cc=S.data.games[gid].rounds[+ri].courts[+ci]; const sc=S.ui.scores[k] ||= {};
+    const cur=+(sc[v] ?? cc[v] ?? 0)||0; sc[v]=String(cur+1); const o=v==="sa"?"sb":"sa"; if(sc[o]==null) sc[o]=String(+(cc[o]??0)||0); try{ navigator.vibrate&&navigator.vibrate(15); }catch(e){} },
+  scoreUndo(v){ const k=S.ui.modal.key; const [gid,ri,ci]=k.split(":"); const cc=S.data.games[gid].rounds[+ri].courts[+ci]; const sc=S.ui.scores[k] ||= {};
+    const cur=+(sc[v] ?? cc[v] ?? 0)||0; sc[v]=String(Math.max(0,cur-1)); },
   editRound(v,el){ S.ui.editRound=`${el.dataset.g}:${v}`; },
   cancelEdit(v,el){ const g=S.data.games[el.dataset.g]; (g?.rounds?.[+v]?.courts||[]).forEach((_,ci)=>delete S.ui.scores[`${el.dataset.g}:${v}:${ci}`]); S.ui.editRound=null; },
   async saveCorrection(v,el){ const g=curGame(el.dataset.g); const ri=+v; const rd=g.rounds[ri]; let changed=0;
@@ -1344,7 +1540,12 @@ document.addEventListener("change",ev=>{
 document.addEventListener("keydown",ev=>{ if(ev.key==="Escape"&&S.ui.modal){ A.closeModal(); schedule(); } });
 
 /* ---------- boot ---------- */
+function readGameLink(){ const m=/^#g-([A-Za-z0-9_-]+)$/.exec(location.hash||""); if(m){ try{ sessionStorage.setItem("courtside-open",m[1]); }catch(e){} return m[1]; }
+  try{ return sessionStorage.getItem("courtside-open"); }catch(e){ return null; } }
+function openPendingGame(){ const id=S.pendingGame; if(!id) return; if(S.data.games[id]){ S.ui.tab="games"; S.ui.view={type:"game",id}; }
+  S.pendingGame=null; try{ sessionStorage.removeItem("courtside-open"); }catch(e){} }
 async function boot(){
+  S.pendingGame=readGameLink();
   render();
   if(!window.supabase || !CFG.supabaseUrl || /YOUR-/.test(CFG.supabaseUrl+CFG.supabaseAnonKey)){ S.mode="setup"; schedule(); return; }
   sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}});

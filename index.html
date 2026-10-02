@@ -204,6 +204,7 @@ details summary{cursor:pointer;font-weight:600}
 </head>
 <body>
 <div id="app"></div>
+<input id="photo-picker" type="file" accept="image/*" aria-hidden="true" tabindex="-1" style="position:fixed;left:-9999px;width:1px;height:1px;opacity:0">
 
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
@@ -867,7 +868,7 @@ function profileForm(first, tid){
       ${f.path?`<p class="eyebrow" style="margin-top:6px">Your player profile</p><p class="muted" style="font-size:.88rem">Organisers play too. Your starting level is your own estimate; results adjust it from there. Once saved, only an organiser can change it.</p>`:""}`
       : other ? `<div class="row between"><div><p class="eyebrow">Admin · editing another player</p><h2>${esc(p?.name||"Player")}</h2></div><button class="btn ghost" data-act="closeModal" aria-label="Close">✕</button></div>` : `<h2>Edit profile</h2>`}
     ${first?"":`<div class="f" style="font-size:.85rem;font-weight:600">Photo<div class="row">${avatar(tid,64)}
-      <label class="btn small" for="pf-photo" style="cursor:pointer">${S.data.players[tid]?.photo?"Change photo":"Add a photo"}</label><input id="pf-photo" type="file" accept="image/*" data-act-change="uploadPhoto" data-v="${esc(tid)}" style="position:absolute;width:1px;height:1px;opacity:0">
+      <button class="btn small" data-act="pickPhoto" data-v="${esc(tid)}">${S.data.players[tid]?.photo?"Change photo":"Add a photo"}</button>
       ${S.data.players[tid]?.photo?`<button class="btn ghost small" data-act="removePhoto" data-v="${esc(tid)}">Remove</button>`:""}</div></div>`}
     ${first&&!f.path?"":`<label class="f">${other?"Name":"Name shown to other players"}<input id="pf-name" type="text" data-bind="prof.name" value="${esc(f.name)}"></label>
     <div class="f" style="font-size:.85rem;font-weight:600">I am a<span class="hint">Used for all-male and all-female games and for Americano men's and women's winners</span>
@@ -1442,7 +1443,10 @@ const A = {
     if(error) return toast(dbError(error)); D().chatDraft[v]=""; const list=(S.chat[v] ||= []); if(!list.some(m=>m.id===data.id)) list.push(data); },
   async delChat(v,el){ const gid=el.dataset.g; if(S.mode!=="sample"){ const {error}=await sb.from("game_messages").delete().eq("id",v); if(error) return toast(dbError(error)); }
     S.chat[gid]=(S.chat[gid]||[]).filter(m=>m.id!==v); },
-  async uploadPhoto(v,el){ const pid=el.dataset.v, file=el.files&&el.files[0]; if(!file) return;
+  // The file input lives outside the re-rendered page, so a refresh while the photo picker is open can't lose the choice.
+  pickPhoto(v){ S.photoFor=v; const i=document.getElementById("photo-picker"); i.value=""; i.click(); },
+  async uploadPhoto(v,el){ const pid=el.dataset.v, file=el.files&&el.files[0]; if(!file||!pid) return;
+    toast("Uploading photo…"); schedule();
     if(file.size>15e6) return toast("That photo is too large. Choose one under 15 MB.");
     let blob; try{ blob=await resizeImage(file); }catch(e){ return toast(e.message); }
     let url;
@@ -1537,6 +1541,7 @@ document.addEventListener("change",ev=>{
   if(el.dataset.time!=null){ const t=normTime(el.value); if(t){ el.value=t; setPath(el.dataset.bind,t); } }
   if(el.dataset.rerender!=null||el.type==="radio"||el.type==="checkbox") schedule();
 });
+document.getElementById("photo-picker").addEventListener("change",ev=>{ const i=ev.target; A.uploadPhoto(null,{dataset:{v:S.photoFor},files:i.files}).finally(schedule); });
 document.addEventListener("keydown",ev=>{ if(ev.key==="Escape"&&S.ui.modal){ A.closeModal(); schedule(); } });
 
 /* ---------- boot ---------- */

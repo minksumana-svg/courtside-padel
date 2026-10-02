@@ -165,7 +165,7 @@ tr.lead td{background:var(--ball-soft)}
 .li:last-child{border-bottom:0}
 .li .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted)}
-.dot.M{background:var(--court)} .dot.F{background:var(--ball)} .dot.N{background:linear-gradient(90deg,var(--court) 50%,var(--ball) 50%)} .dot.mx{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--muted)}
+.dot.M{background:var(--court)} .dot.F{background:var(--ball)} .dot.mx{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--muted)}
 
 .lvl{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
 .lvl button{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:8px 0;font-family:var(--f-display);font-weight:700;font-size:1.1rem;cursor:pointer}
@@ -377,12 +377,7 @@ function blockPairs(){ const out=new Set(); Object.entries(S.data.player_blocks|
 function startLevel(id){ const o=S.data.levels[id]; return o && o.level!=null ? +o.level : +(S.data.players[id]?.level ?? 5); }
 function canSetLevel(id){ if(isAdmin()) return true; const p=S.data.players[id]; return !!p && (p.locations||[]).some(l=>isOrganiser(l)); }
 function sexOf(id){ const p=S.data.players[id]; if(!p) return ""; return p.gender==="X" ? (p.cat||"") : (p.gender||""); }
-function prefMixed(id){ const p=S.data.players[id]; return !!p && (p.gender==="X" || p.gender==="N" || p.pref==="mixed"); }
-// Male, female or non-binary. Non-binary players partner anyone happy to play mixed, and have their own "Open"
-// winners category in points games (crowned when two or more play); all-male / all-female games stay M / F.
-const SEXES=[["M","Male"],["F","Female"],["N","Non-binary"]];
-const sexLabel = k => (SEXES.find(x=>x[0]===k)||[])[1]||"";
-const catLabel = k => ({M:"Men's",F:"Women's",N:"Open"}[k]||"");
+function prefMixed(id){ const p=S.data.players[id]; return !!p && (p.gender==="X" || p.pref==="mixed"); }
 function genderPen(ids,g){
   if(ids.length<2) return 0; const [a,b]=ids, sa=sexOf(a), sb=sexOf(b); if(!sa||!sb) return 0;
   if(g.team==="mixed") return sa===sb?1:0;
@@ -794,7 +789,7 @@ function banner(){
   const rq=myRequest();
   if(S.mode!=="sample" && rq && rq.status==="pending") return `<div class="banner info"><p><b>Your organiser application is with the admin.</b> ${esc(reqWhere(rq))}. You can play in the meantime${(myPlayer()?.locations||[]).length?"":" once it's approved"}.</p><button class="btn small" data-act="withdrawApply">Withdraw</button></div>`;
   if(S.mode!=="sample" && rq && rq.status==="declined") return `<div class="banner"><p><b>Your organiser application wasn't approved.</b> ${esc(reqWhere(rq))}. Speak to the admin if you'd like to talk it through.</p><button class="btn small" data-act="withdrawApply">Dismiss</button></div>`;
-  if(S.mode==="live" && myPlayer() && !sexOf(meId())) return `<div class="banner"><p><b>Finish your profile.</b> Choose male, female or non-binary and your pairing preference so games can pair you and results can place you.</p><button class="btn primary" data-act="editProfile">Edit profile</button></div>`;
+  if(S.mode==="live" && myPlayer() && !sexOf(meId())) return `<div class="banner"><p><b>Finish your profile.</b> Choose man or woman and your pairing preference so games can pair you and results can place you.</p><button class="btn primary" data-act="editProfile">Edit profile</button></div>`;
   if(S.mode==="live" && settings().membershipLive && myPlayer() && !canPlay(meId())) return `<div class="banner"><p><b>Annual membership is now required to join games.</b> Speak to the club admin to pay ${money(settings().price)} for the year${settings().trialDays?` or start a ${settings().trialDays}-day trial`:""}.</p></div>`;
   return "";
 }
@@ -875,10 +870,10 @@ function profileForm(first, tid){
       <label class="btn small" for="pf-photo" style="cursor:pointer">${S.data.players[tid]?.photo?"Change photo":"Add a photo"}</label><input id="pf-photo" type="file" accept="image/*" data-act-change="uploadPhoto" data-v="${esc(tid)}" style="position:absolute;width:1px;height:1px;opacity:0">
       ${S.data.players[tid]?.photo?`<button class="btn ghost small" data-act="removePhoto" data-v="${esc(tid)}">Remove</button>`:""}</div></div>`}
     ${first&&!f.path?"":`<label class="f">${other?"Name":"Name shown to other players"}<input id="pf-name" type="text" data-bind="prof.name" value="${esc(f.name)}"></label>
-    <div class="f" style="font-size:.85rem;font-weight:600">I am a<span class="hint">Used for all-male and all-female games and for men's, women's and open winners</span>
-      <div class="row">${SEXES.map(([v,l])=>`<label class="check"><input type="radio" name="pf-sex" id="pf-sex-${v}" data-bind="prof.sex" value="${v}" ${f.sex===v?"checked":""}> ${l}</label>`).join("")}</div></div>
+    <div class="f" style="font-size:.85rem;font-weight:600">I am a<span class="hint">Used for all-male and all-female games and for Americano men's and women's winners</span>
+      <div class="row">${[["M","Man"],["F","Woman"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-sex" id="pf-sex-${v}" data-bind="prof.sex" value="${v}" ${f.sex===v?"checked":""}> ${l}</label>`).join("")}</div></div>
     <div class="f" style="font-size:.85rem;font-weight:600">Pairing preference<span class="hint">Only players happy to play mixed are put in a man + woman pair</span>
-      <div class="row">${(f.sex==="N"?[["mixed","Happy to partner anyone"]]:[["same",f.sex==="F"?"Women's only":f.sex==="M"?"Men's only":"Same-sex pairs only"],["mixed","Happy to play mixed"]]).map(([v,l])=>`<label class="check"><input type="radio" name="pf-pref" id="pf-pref-${v}" data-bind="prof.pref" value="${v}" ${f.pref===v||f.sex==="N"?"checked":""}> ${l}</label>`).join("")}</div></div>
+      <div class="row">${[["same",f.sex==="F"?"Women's only":f.sex==="M"?"Men's only":"Same-sex pairs only"],["mixed","Happy to play mixed"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-pref" id="pf-pref-${v}" data-bind="prof.pref" value="${v}" ${f.pref===v?"checked":""}> ${l}</label>`).join("")}</div></div>
     ${lvlEditable ? `<div class="f" style="font-size:.85rem;font-weight:600">Starting level: <span class="num">${f.level}</span> · ${LEVELS[Math.round(f.level)]||""}${first?"":`<span class="hint">Organiser and admin only${lo?` · last changed ${fmtDT(lo.at)} by ${esc(pname(lo.by))}, was ${lo.prev}`:""}</span>`}
       <div class="lvl" role="group" aria-label="Starting level">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button id="pf-l${n}" data-act="setLevel" data-v="${n}" aria-pressed="${+f.level===n}">${n}</button>`).join("")}</div></div>`
     : `<div class="f" style="font-size:.85rem;font-weight:600">Starting level <span class="hint">Locked. Ask an organiser if it needs changing.</span>
@@ -942,7 +937,7 @@ function gameCard(g,c){
     ${g.date<today()?`<span class="row">${gameWinners(g).map(w=>`<span class="chip ball">🏆 ${w.cat?w.cat+" · ":""}${esc(pname(w.id))}</span>`).join("")}</span>`:""}
     ${mine?(isInvited(g,meId())?`<span class="chip court" style="align-self:flex-start">Invited by the organiser</span>`:`<span class="chip good" style="align-self:flex-start">You're playing</span>`):""}</button>`;
 }
-const playsIn = id => { const sx=sexOf(id); if(!sx) return "Profile incomplete"; return sexLabel(sx)+(sx==="N"?" · partners anyone":prefMixed(id)?" · plays mixed":` · ${sx==="M"?"men's":"women's"} only`); };
+const playsIn = id => { const sx=sexOf(id); if(!sx) return "Profile incomplete"; return (sx==="M"?"Man":"Woman")+(prefMixed(id)?" · plays mixed":` · ${sx==="M"?"men's":"women's"} only`); };
 const dotCls = id => (sexOf(id)||"") + (prefMixed(id)?" mx":"");
 const teamLabel = t => ({random:"Random pairs",mixed:"Mixed pairs (M+F, mixed players only)",male:"All male",female:"All female"}[t]||"Random pairs");
 
@@ -1027,7 +1022,7 @@ function gameWinners(g){
   const rows=gameStandings(g); if(!rows.length) return [];
   if(!pointsFmt(g)){ return rows.filter(r=>tied(g,r,rows[0])).map(r=>({id:r.id,cat:""})); }
   const out=[];
-  ["M","F","N"].forEach(k=>{ const rs=rows.filter(r=>sexOf(r.id)===k); if(!rs.length || (k==="N" && rs.length<2)) return;
+  ["M","F"].forEach(k=>{ const rs=rows.filter(r=>sexOf(r.id)===k); if(!rs.length) return;
     rs.filter(r=>tied(g,r,rs[0])).forEach(r=>out.push({id:r.id,cat:k})); });
   return out;
 }
@@ -1038,20 +1033,20 @@ function standingsPanel(g){
   const finished = rounds.length>0 && done===rounds.length && (!am || done>=planned || g.date<today());
   const same=(a,b)=> tied(g,a,b);
   let pos=0; const ranked=rows.map((r,i)=>{ if(i===0||!same(r,rows[i-1])) pos=i+1; return {...r,pos}; });
-  const catPos={}; if(am) ["M","F","N"].forEach(k=>{ let p=0; const rs=ranked.filter(r=>sexOf(r.id)===k); rs.forEach((r,i)=>{ if(i===0||!same(r,rs[i-1])) p=i+1; catPos[r.id]=p; }); });
+  const catPos={}; if(am) ["M","F"].forEach(k=>{ let p=0; const rs=ranked.filter(r=>sexOf(r.id)===k); rs.forEach((r,i)=>{ if(i===0||!same(r,rs[i-1])) p=i+1; catPos[r.id]=p; }); });
   const win=gameWinners(g); const winIds=new Set(win.map(w=>w.id));
   const verb=finished?"":"Leading ";
   const head = am
-    ? ["M","F","N"].filter(k=>win.some(w=>w.cat===k)).map(k=>`<span style="display:block">${verb}${win.filter(w=>w.cat===k).length>1?`${verb?"":"Joint "}${catLabel(k).toLowerCase()} winners`:`${catLabel(k)} winner`}: ${win.filter(w=>w.cat===k).map(w=>esc(pname(w.id))).join(" & ")}</span>`).join("")
+    ? ["M","F"].filter(k=>win.some(w=>w.cat===k)).map(k=>`<span style="display:block">${verb}${win.filter(w=>w.cat===k).length>1?`${verb?"":"Joint "}${k==="M"?"men's":"women's"} winners`:`${k==="M"?"Men's":"Women's"} winner`}: ${win.filter(w=>w.cat===k).map(w=>esc(pname(w.id))).join(" & ")}</span>`).join("")
     : `${finished?(win.length>1?"Joint winners: ":"Winner: "):"Leading: "}${win.map(w=>esc(pname(w.id))).join(" & ")}`;
   const noCat = am ? ranked.filter(r=>!sexOf(r.id)) : [];
   return `<section class="panel"><div class="row between"><div><p class="eyebrow">${finished?"Final result":`After ${done} round${done===1?"":"s"}`}</p>
     <h2>${head}</h2></div>
     ${finished?`<span class="chip ball">🏆 Game complete</span>`:`<span class="chip court">In progress</span>`}</div>
-    <p class="muted" style="font-size:.85rem">${am?`${esc(fmtLabel(g))} crowns men's and women's winners (and an open winner when two or more non-binary players take part): most points won, then +/−.`:"Ranked by matches won, then +/−."} Players level on both share the place.${noCat.length?` ${noCat.map(r=>esc(pname(r.id))).join(", ")} ${noCat.length>1?"haven't":"hasn't"} chosen a winners category yet.`:""}</p>
+    <p class="muted" style="font-size:.85rem">${am?`${esc(fmtLabel(g))} crowns a men's and a women's winner: most points won, then +/−.`:"Ranked by matches won, then +/−."} Players level on both share the place.${noCat.length?` ${noCat.map(r=>esc(pname(r.id))).join(", ")} ${noCat.length>1?"haven't":"hasn't"} chosen a winners category yet.`:""}</p>
     <div class="tw"><table><thead><tr><th>#</th><th>Player</th>${am?`<th>Category</th>`:""}<th class="r">Played</th><th class="r">Won</th><th class="r">Lost</th><th class="r">Points for</th><th class="r">Against</th><th class="r">+/−</th></tr></thead><tbody>
     ${ranked.map(r=>{ const k=sexOf(r.id); return `<tr class="click ${winIds.has(r.id)?"lead":""}" data-act="openPlayer" data-v="${esc(r.id)}"><td><span class="medal ${winIds.has(r.id)?"m1":""}">${r.pos}</span></td><td>${esc(pname(r.id))}${r.id===meId()?" (you)":""}</td>
-      ${am?`<td>${k?`<span class="chip ${catPos[r.id]===1?"ball":""}">${catLabel(k)} #${catPos[r.id]}</span>`:`<span class="muted">—</span>`}</td>`:""}
+      ${am?`<td>${k?`<span class="chip ${catPos[r.id]===1?"ball":""}">${k==="M"?"Men's":"Women's"} #${catPos[r.id]}</span>`:`<span class="muted">—</span>`}</td>`:""}
       <td class="r num">${r.p}</td><td class="r num"><b>${r.w}</b>${r.d?` <span class="muted">(${r.d}D)</span>`:""}</td><td class="r num">${r.l}</td><td class="r num">${r.pf}</td><td class="r num">${r.pa}</td><td class="r num ${r.pf-r.pa>=0?"pos":"neg"}">${sign(r.pf-r.pa,0)}</td></tr>`; }).join("")}
     </tbody></table></div></section>`;
 }
@@ -1368,14 +1363,14 @@ const A = {
     const other = id!==meId(); if(other && !isAdmin()) return toast("Only the admin can edit other players.");
     if(!other && !S.data.players[id] && !f.path) return toast("Choose whether you're joining as a player or applying to organise.");
     if(!f.name.trim()) return toast(other?"Add a name.":"Add your name.");
-    if(!f.sex) return toast("Choose male, female or non-binary.");
+    if(!f.sex) return toast("Choose man or woman.");
     const ex=S.data.players[id]; const now=Date.now();
     if(!ex && !other){
       if(!f.path) return toast("Choose whether you're joining as a player or applying to organise.");
       if(f.path==="player"){ if(!f.reqLoc) return toast("Choose your padel location."); f.locs=[f.reqLoc]; }
       else { const err=applyCheck(f); if(err) return toast(err); f.locs = f.reqLoc==="__new" ? [] : [f.reqLoc]; }
     } else if(!f.locs.length) return toast("Choose at least one club.");
-    const p={...(ex||{}), id, name:f.name.trim().slice(0,40), gender:f.sex, pref:(f.pref==="mixed"||f.sex==="N")?"mixed":"same", locations:f.locs,
+    const p={...(ex||{}), id, name:f.name.trim().slice(0,40), gender:f.sex, pref:f.pref==="mixed"?"mixed":"same", locations:f.locs,
       level: ex ? ex.level : +f.level,
       joinedAt: ex?.joinedAt || today(), lastSignIn: ex?.lastSignIn || (other?null:now), signInCount: ex?.signInCount || (other?0:1), signIns: ex?.signIns || (other?[]:[now])};
     delete p.cat;

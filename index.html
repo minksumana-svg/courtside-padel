@@ -789,7 +789,7 @@ function banner(){
   const rq=myRequest();
   if(S.mode!=="sample" && rq && rq.status==="pending") return `<div class="banner info"><p><b>Your organiser application is with the admin.</b> ${esc(reqWhere(rq))}. You can play in the meantime${(myPlayer()?.locations||[]).length?"":" once it's approved"}.</p><button class="btn small" data-act="withdrawApply">Withdraw</button></div>`;
   if(S.mode!=="sample" && rq && rq.status==="declined") return `<div class="banner"><p><b>Your organiser application wasn't approved.</b> ${esc(reqWhere(rq))}. Speak to the admin if you'd like to talk it through.</p><button class="btn small" data-act="withdrawApply">Dismiss</button></div>`;
-  if(S.mode==="live" && myPlayer() && !sexOf(meId())) return `<div class="banner"><p><b>Finish your profile.</b> Choose man or woman and your pairing preference so games can pair you and results can place you.</p><button class="btn primary" data-act="editProfile">Edit profile</button></div>`;
+  if(S.mode==="live" && myPlayer() && !sexOf(meId())) return `<div class="banner"><p><b>Finish your profile.</b> Choose male or female and your pairing preference so games can pair you and results can place you.</p><button class="btn primary" data-act="editProfile">Edit profile</button></div>`;
   if(S.mode==="live" && settings().membershipLive && myPlayer() && !canPlay(meId())) return `<div class="banner"><p><b>Annual membership is now required to join games.</b> Speak to the club admin to pay ${money(settings().price)} for the year${settings().trialDays?` or start a ${settings().trialDays}-day trial`:""}.</p></div>`;
   return "";
 }
@@ -871,7 +871,7 @@ function profileForm(first, tid){
       ${S.data.players[tid]?.photo?`<button class="btn ghost small" data-act="removePhoto" data-v="${esc(tid)}">Remove</button>`:""}</div></div>`}
     ${first&&!f.path?"":`<label class="f">${other?"Name":"Name shown to other players"}<input id="pf-name" type="text" data-bind="prof.name" value="${esc(f.name)}"></label>
     <div class="f" style="font-size:.85rem;font-weight:600">I am a<span class="hint">Used for all-male and all-female games and for Americano men's and women's winners</span>
-      <div class="row">${[["M","Man"],["F","Woman"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-sex" id="pf-sex-${v}" data-bind="prof.sex" value="${v}" ${f.sex===v?"checked":""}> ${l}</label>`).join("")}</div></div>
+      <div class="row">${[["M","Male"],["F","Female"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-sex" id="pf-sex-${v}" data-bind="prof.sex" value="${v}" ${f.sex===v?"checked":""}> ${l}</label>`).join("")}</div></div>
     <div class="f" style="font-size:.85rem;font-weight:600">Pairing preference<span class="hint">Only players happy to play mixed are put in a man + woman pair</span>
       <div class="row">${[["same",f.sex==="F"?"Women's only":f.sex==="M"?"Men's only":"Same-sex pairs only"],["mixed","Happy to play mixed"]].map(([v,l])=>`<label class="check"><input type="radio" name="pf-pref" id="pf-pref-${v}" data-bind="prof.pref" value="${v}" ${f.pref===v?"checked":""}> ${l}</label>`).join("")}</div></div>
     ${lvlEditable ? `<div class="f" style="font-size:.85rem;font-weight:600">Starting level: <span class="num">${f.level}</span> · ${LEVELS[Math.round(f.level)]||""}${first?"":`<span class="hint">Organiser and admin only${lo?` · last changed ${fmtDT(lo.at)} by ${esc(pname(lo.by))}, was ${lo.prev}`:""}</span>`}
@@ -937,7 +937,7 @@ function gameCard(g,c){
     ${g.date<today()?`<span class="row">${gameWinners(g).map(w=>`<span class="chip ball">🏆 ${w.cat?w.cat+" · ":""}${esc(pname(w.id))}</span>`).join("")}</span>`:""}
     ${mine?(isInvited(g,meId())?`<span class="chip court" style="align-self:flex-start">Invited by the organiser</span>`:`<span class="chip good" style="align-self:flex-start">You're playing</span>`):""}</button>`;
 }
-const playsIn = id => { const sx=sexOf(id); if(!sx) return "Profile incomplete"; return (sx==="M"?"Man":"Woman")+(prefMixed(id)?" · plays mixed":` · ${sx==="M"?"men's":"women's"} only`); };
+const playsIn = id => { const sx=sexOf(id); if(!sx) return "Profile incomplete"; return (sx==="M"?"Male":"Female")+(prefMixed(id)?" · plays mixed":` · ${sx==="M"?"men's":"women's"} only`); };
 const dotCls = id => (sexOf(id)||"") + (prefMixed(id)?" mx":"");
 const teamLabel = t => ({random:"Random pairs",mixed:"Mixed pairs (M+F, mixed players only)",male:"All male",female:"All female"}[t]||"Random pairs");
 
@@ -1363,7 +1363,7 @@ const A = {
     const other = id!==meId(); if(other && !isAdmin()) return toast("Only the admin can edit other players.");
     if(!other && !S.data.players[id] && !f.path) return toast("Choose whether you're joining as a player or applying to organise.");
     if(!f.name.trim()) return toast(other?"Add a name.":"Add your name.");
-    if(!f.sex) return toast("Choose man or woman.");
+    if(!f.sex) return toast("Choose male or female.");
     const ex=S.data.players[id]; const now=Date.now();
     if(!ex && !other){
       if(!f.path) return toast("Choose whether you're joining as a player or applying to organise.");
